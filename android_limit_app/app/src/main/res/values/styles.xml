@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android標準テーマを使い、AppCompatやComposeの依存を追加しません。 -->
+    <style name="Theme.FocusDPC" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+    <style name="StatusRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+    <style name="StatusLabel">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:layout_marginEnd">12dp</item>
+    </style>
+    <style name="StatusValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:text">@string/state_unknown</item>
+        <item name="android:accessibilityLiveRegion">polite</item>
+    </style>
+</resources>

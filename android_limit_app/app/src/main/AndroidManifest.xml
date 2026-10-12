@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        Android 10のPrivate DNS設定APIはアプリ側でTLS接続を確認するため、通信権限が必要です。
+        INTERNETは通常権限なので、利用者への実行時の許可ダイアログは表示されません。
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-feature android:name="android.software.device_admin" android:required="true" />
+
+    <!--
+        β版の重要な設定です。
+        testOnly=trueにすることで、ADBのremove-active-adminでDevice Ownerを解除できます。
+        releaseビルドでも維持します。インストール時はadb install -tを使用してください。
+    -->
+    <application
+        android:name=".FocusDpcApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/ic_focus"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:testOnly="true"
+        android:theme="@style/Theme.FocusDPC">
+
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- exportedでもBIND_DEVICE_ADMINにより、管理用通知を送れるのはシステムだけです。 -->
+        <receiver
+            android:name=".MyDeviceAdminReceiver"
+            android:description="@string/admin_description"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

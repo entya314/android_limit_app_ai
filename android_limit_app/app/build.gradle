@@ -1,0 +1,46 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace = 'io.github.focusdpc'
+    compileSdk = 36
+    buildToolsVersion = '36.0.0'
+
+    defaultConfig {
+        applicationId = 'io.github.focusdpc'
+        minSdk = 29
+        targetSdk = 36
+        versionCode = 1
+        versionName = '0.1.0-beta'
+
+        // 標準のInstrumentationでテストするため、テスト用の追加ライブラリも不要です。
+        testInstrumentationRunner = 'io.github.focusdpc.PolicyInstrumentation'
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        release {
+            // β版では難読化せず、問題が起きたときに追いやすくします。
+            minifyEnabled = false
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // 非推奨のandroid.kotlinOptionsではなく、現在のKotlin DSLを使用します。
+        jvmTarget = JvmTarget.JVM_17
+        allWarningsAsErrors = true
+    }
+}
+
+// 実行時に必要なのはKotlin標準ライブラリ（プラグインが自動追加）だけです。
+// UI、非同期処理、Device Owner管理はすべてAndroid/Java標準APIを使用します。

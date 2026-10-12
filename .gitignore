@@ -1,0 +1,14 @@
+# ローカル環境の設定・生成物はソースに含めません。
+work/
+**/build/
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/local.properties
+*.iml
+*.jks
+*.keystore
+*.hprof
+__pycache__/
+*.pyc
+.DS_Store

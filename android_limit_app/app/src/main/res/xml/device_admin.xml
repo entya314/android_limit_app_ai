@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        Device Ownerとして使う制限には、旧Device Adminの個別ポリシー宣言は不要です。
+        wipe-dataやforce-lockなど、このβ版に不要な権限は宣言しません。
+    -->
+    <uses-policies />
+</device-admin>

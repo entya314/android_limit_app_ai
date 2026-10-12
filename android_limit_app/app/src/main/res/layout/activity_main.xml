@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 標準のScrollViewで、小さい画面や文字サイズを大きくした端末にも対応します。 -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_scroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/beta_label"
+            android:textColor="@color/active"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityHeading="true"
+            android:text="@string/app_name"
+            android:textColor="@color/text"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/intro"
+            android:textColor="@color/muted"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/card_background"
+            android:orientation="vertical"
+            android:padding="20dp">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:accessibilityHeading="true"
+                android:text="@string/status_heading"
+                android:textColor="@color/text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <LinearLayout style="@style/StatusRow">
+                <TextView style="@style/StatusLabel" android:text="@string/label_device_owner" />
+                <TextView android:id="@+id/owner_status" style="@style/StatusValue" />
+            </LinearLayout>
+            <LinearLayout style="@style/StatusRow">
+                <TextView style="@style/StatusLabel" android:text="@string/label_nextdns" />
+                <TextView android:id="@+id/dns_status" style="@style/StatusValue" />
+            </LinearLayout>
+            <LinearLayout style="@style/StatusRow">
+                <TextView style="@style/StatusLabel" android:text="@string/label_dns_restriction" />
+                <TextView android:id="@+id/dns_restriction_status" style="@style/StatusValue" />
+            </LinearLayout>
+            <LinearLayout style="@style/StatusRow">
+                <TextView style="@style/StatusLabel" android:text="@string/label_install_restriction" />
+                <TextView android:id="@+id/install_status" style="@style/StatusValue" />
+            </LinearLayout>
+            <LinearLayout style="@style/StatusRow">
+                <TextView style="@style/StatusLabel" android:text="@string/label_uninstall_restriction" />
+                <TextView android:id="@+id/uninstall_status" style="@style/StatusValue" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/current_hostname"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/muted"
+                android:textSize="12sp"
+                android:textIsSelectable="true" />
+            <TextView
+                android:id="@+id/owner_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/owner_hint"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/configured_hostname"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="@color/muted"
+            android:textSize="12sp"
+            android:textIsSelectable="true" />
+
+        <Button
+            android:id="@+id/apply_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="56dp"
+            android:backgroundTint="@color/accent"
+            android:text="@string/apply_button"
+            android:textAllCaps="false"
+            android:textColor="@color/surface" />
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:indeterminate="true"
+            android:visibility="gone" />
+        <Button
+            android:id="@+id/refresh_button"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/refresh_button"
+            android:textAllCaps="false"
+            android:textColor="@color/accent" />
+        <Button
+            android:id="@+id/clear_button"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/clear_button"
+            android:textAllCaps="false"
+            android:textColor="@color/muted" />
+
+        <TextView
+            android:id="@+id/action_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:accessibilityLiveRegion="polite"
+            android:background="@drawable/card_background"
+            android:padding="16dp"
+            android:textColor="@color/text"
+            android:textSize="14sp"
+            android:textIsSelectable="true"
+            android:visibility="gone" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/notice_background"
+            android:padding="16dp"
+            android:text="@string/beta_notice"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/dns_notice"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>
