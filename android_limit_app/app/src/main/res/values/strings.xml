@@ -2,12 +2,14 @@
 <resources>
     <string name="app_name">FocusDPC</string>
     <string name="beta_label">β版 · 端末単体で動作</string>
-    <string name="intro">スマートフォンの利用環境を整える、端末管理ツールです。</string>
+    <string name="intro">NextDNSとアプリの導入経路を管理します。PCからADBでアプリを追加できます。</string>
     <string name="status_heading">現在の状態</string>
     <string name="label_device_owner">Device Owner</string>
     <string name="label_nextdns">NextDNS</string>
     <string name="label_dns_restriction">Private DNS変更禁止</string>
-    <string name="label_install_restriction">アプリインストール禁止</string>
+    <string name="label_play_store_restriction">Playストア利用禁止</string>
+    <string name="label_unknown_sources_restriction">提供元不明アプリ禁止</string>
+    <string name="label_adb_installation">ADBインストール許可</string>
     <string name="label_uninstall_restriction">DPCアンインストール禁止</string>
     <string name="state_enabled">有効</string>
     <string name="state_disabled">無効</string>
@@ -21,7 +23,7 @@
     <string name="apply_button">ポリシーを適用</string>
     <string name="refresh_button">状態を更新</string>
     <string name="beta_notice">このβ版は、ADB・開発者向けオプション・工場出荷状態へのリセットを制限しません。</string>
-    <string name="dns_notice">NextDNSの設定に失敗した場合も、インストール禁止とアンインストール禁止は個別に適用します。操作結果をご確認ください。</string>
+    <string name="dns_notice">NextDNSの設定に失敗した場合も、Playストア・通常APKの制限とアンインストール禁止は個別に適用します。Playストアの自動更新も止まります。ADBにはUSBデバッグとPCへの接続許可が必要です。</string>
     <string name="admin_description">NextDNSとアプリのインストールを管理する、開発用の端末管理アプリです。</string>
     <string name="not_device_owner">このアプリはDevice Ownerではありません</string>
     <string name="owner_check_failed">Device Ownerの状態を確認できませんでした。状態を更新して再試行してください。</string>
@@ -31,6 +33,11 @@
     <string name="operation_failed">処理に失敗しました。状態を更新して再試行してください。</string>
     <string name="step_applied">適用済み</string>
     <string name="step_cleared">解除済み</string>
+    <string name="adb_installation_allowed">ADBインストールを許可しました。</string>
+    <string name="adb_installation_restricted">ADBを禁止する制限が残っています。現在の状態をご確認ください。</string>
+    <string name="adb_migration_skipped">ストア・通常APKの制限に失敗したため、旧版の一括インストール禁止は解除していません。</string>
+    <string name="play_store_setting_failed">Playストアの利用制限を反映できませんでした。</string>
+    <string name="install_policy_verification_failed">通常APKのインストール禁止を確認できませんでした。</string>
     <string name="apply_complete">すべてのポリシーを適用しました。</string>
     <string name="apply_partial">一部のポリシーは適用できませんでした。以下の結果と現在の状態をご確認ください。</string>
     <string name="clear_complete">β版の制限を解除しました。Device Owner登録は残っています。</string>

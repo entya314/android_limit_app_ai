@@ -3,6 +3,8 @@ package io.github.focusdpc
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Looper
 import android.os.UserManager
 import android.util.Log
@@ -61,8 +63,18 @@ class PolicyManager(
             privateDnsChangesBlocked = read(R.string.label_dns_restriction) {
                 userManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_PRIVATE_DNS)
             },
-            appInstallationBlocked = read(R.string.label_install_restriction) {
-                userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS)
+            playStoreBlocked = if (owner == true) read(R.string.label_play_store_restriction) {
+                !isPlayStoreInstalled() ||
+                    devicePolicyManager.isApplicationHidden(admin, PLAY_STORE_PACKAGE)
+            } else null,
+            unknownSourcesBlocked = read(R.string.label_unknown_sources_restriction) {
+                userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY) ||
+                    userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
+            },
+            adbInstallationAllowed = read(R.string.label_adb_installation) {
+                // USB接続済みという意味ではなく、ポリシーで禁止されていないことを示します。
+                !userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS) &&
+                    !userManager.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)
             },
             selfUninstallBlocked = if (owner == true) read(R.string.label_uninstall_restriction) {
                 devicePolicyManager.isUninstallBlocked(admin, appContext.packageName)
@@ -96,8 +108,28 @@ class PolicyManager(
             )
         }
 
-        steps += runStep(R.string.label_install_restriction) {
-            devicePolicyManager.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+        // 一括インストール禁止はADBまで止めます。Playストアと通常APKの経路を個別に制限します。
+        // 旧版からの移行では、この2つの成功を確認してから以前の一括禁止を外します。
+        val playStoreResult = configurePlayStore()
+        steps += playStoreResult
+        val unknownSourcesResult = runStep(R.string.label_unknown_sources_restriction) {
+            devicePolicyManager.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
+            check(userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)) {
+                appContext.getString(R.string.install_policy_verification_failed)
+            }
+        }
+        steps += unknownSourcesResult
+        steps += if (playStoreResult.success && unknownSourcesResult.success) {
+            runStep(R.string.label_adb_installation, R.string.adb_installation_allowed) {
+                devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+                check(!userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS) &&
+                    !userManager.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
+                    appContext.getString(R.string.adb_installation_restricted)
+                }
+            }
+        } else {
+            PolicyStepResult(appContext.getString(R.string.label_adb_installation), false,
+                appContext.getString(R.string.adb_migration_skipped))
         }
         steps += runStep(R.string.label_uninstall_restriction) {
             devicePolicyManager.setUninstallBlocked(admin, appContext.packageName, true)
@@ -112,8 +144,8 @@ class PolicyManager(
     }
 
     /**
-     * エミュレータの自動テストで、制限を後片付けするための操作です。
-     * 画面やPolicyTaskRunnerには解除の入口を設けず、実機の復旧はADBの手順で行います。
+     * エミュレータの後片付けと、許可済みPCのデバッガーから全解除するための操作です。
+     * 画面やPolicyTaskRunnerには解除の入口を設けません。手順書にPCからの実行方法を記載します。
      * Device Owner登録自体は残し、DNSは以前の値ではなく「自動」へ変更します。
      * 解除も個別実行し、1つ失敗してもインストールやDNS編集の回復を試みます。
      */
@@ -124,8 +156,22 @@ class PolicyManager(
         steps += runStep(R.string.label_dns_restriction, R.string.step_cleared) {
             devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_PRIVATE_DNS)
         }
-        steps += runStep(R.string.label_install_restriction, R.string.step_cleared) {
+        steps += runStep(R.string.label_unknown_sources_restriction, R.string.step_cleared) {
+            devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
+        }
+        steps += runStep(R.string.label_adb_installation, R.string.step_cleared) {
             devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+        }
+        steps += runStep(R.string.label_play_store_restriction, R.string.step_cleared) {
+            if (isPlayStoreInstalled() &&
+                devicePolicyManager.isApplicationHidden(admin, PLAY_STORE_PACKAGE)) {
+                check(devicePolicyManager.setApplicationHidden(admin, PLAY_STORE_PACKAGE, false)) {
+                    appContext.getString(R.string.play_store_setting_failed)
+                }
+                check(!devicePolicyManager.isApplicationHidden(admin, PLAY_STORE_PACKAGE)) {
+                    appContext.getString(R.string.play_store_setting_failed)
+                }
+            }
         }
         steps += runStep(R.string.label_uninstall_restriction, R.string.step_cleared) {
             devicePolicyManager.setUninstallBlocked(admin, appContext.packageName, false)
@@ -135,6 +181,32 @@ class PolicyManager(
             check(code == DevicePolicyManager.PRIVATE_DNS_SET_NO_ERROR) { dnsErrorMessage(code) }
         }
         return summarize(steps, R.string.clear_complete, R.string.clear_partial)
+    }
+
+    /** 非表示のアプリも検索対象にし、Android 11以降はManifestのqueriesで可視性を確保します。 */
+    private fun isPlayStoreInstalled(): Boolean = try {
+        val info = appContext.packageManager.getApplicationInfo(
+            PLAY_STORE_PACKAGE, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        info.flags and ApplicationInfo.FLAG_INSTALLED != 0
+    } catch (_: PackageManager.NameNotFoundException) {
+        false
+    }
+
+    private fun configurePlayStore(): PolicyStepResult {
+        val label = R.string.label_play_store_restriction
+        return runStep(label) {
+            // AOSPエミュレータ等にPlayストアがない場合、既に利用不可なので失敗にはしません。
+            if (isPlayStoreInstalled()) {
+                if (!devicePolicyManager.isApplicationHidden(admin, PLAY_STORE_PACKAGE)) {
+                    check(devicePolicyManager.setApplicationHidden(admin, PLAY_STORE_PACKAGE, true)) {
+                        appContext.getString(R.string.play_store_setting_failed)
+                    }
+                }
+                check(devicePolicyManager.isApplicationHidden(admin, PLAY_STORE_PACKAGE)) {
+                    appContext.getString(R.string.play_store_setting_failed)
+                }
+            }
+        }
     }
 
     private fun configurePrivateDns(): PolicyStepResult {
@@ -204,7 +276,9 @@ class PolicyManager(
         }
     }
 
-    private companion object {
-        const val TAG = "FocusDPC.Policy"
+    companion object {
+        // NextDNSの個人設定ファイルを編集せず更新できるよう、管理対象の定数はこちらに置きます。
+        const val PLAY_STORE_PACKAGE = "com.android.vending"
+        private const val TAG = "FocusDPC.Policy"
     }
 }

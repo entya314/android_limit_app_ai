@@ -23,7 +23,7 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.configured_hostname).text =
             getString(R.string.configured_hostname, PolicyConfig.NEXTDNS_HOSTNAME)
         // 画面から制限を解除できないよう、適用と状態更新だけを用意します。
-        // テスト中の復旧は、手順書にあるADBからのDevice Owner解除で行います。
+        // PCからの復旧は、手順書にあるデバッガー・ADBの手順で行います。
         findViewById<Button>(R.id.apply_button).setOnClickListener { tasks.applyPolicies() }
         findViewById<Button>(R.id.refresh_button).setOnClickListener { tasks.refresh() }
     }
@@ -50,7 +50,9 @@ class MainActivity : Activity() {
         showStatus(R.id.owner_status, status?.deviceOwner)
         showStatus(R.id.dns_status, status?.nextDnsConfigured, isDns = true)
         showStatus(R.id.dns_restriction_status, status?.privateDnsChangesBlocked)
-        showStatus(R.id.install_status, status?.appInstallationBlocked)
+        showStatus(R.id.play_store_status, status?.playStoreBlocked)
+        showStatus(R.id.unknown_sources_status, status?.unknownSourcesBlocked)
+        showStatus(R.id.adb_install_status, status?.adbInstallationAllowed)
         showStatus(R.id.uninstall_status, status?.selfUninstallBlocked)
 
         findViewById<Button>(R.id.apply_button).isEnabled = !ui.busy
