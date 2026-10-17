@@ -127,16 +127,6 @@
             android:text="@string/refresh_button"
             android:textAllCaps="false"
             android:textColor="@color/accent" />
-        <Button
-            android:id="@+id/clear_button"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="@string/clear_button"
-            android:textAllCaps="false"
-            android:textColor="@color/muted" />
-
         <TextView
             android:id="@+id/action_result"
             android:layout_width="match_parent"

@@ -1,8 +1,8 @@
 # FocusDPC β版 詳細設計書
 
 - 作成日：2026-10-17
-- 対象：FocusDPC 0.1.0-beta
-- 対応する実装：[6916e86](https://github.com/entya314/android_limit_app_ai/commit/6916e863b0bcc8c01632d4f80d4d9236a52d758d)
+- 対象：FocusDPC 0.1.1-beta
+- 対応する実装：本リポジトリの0.1.1-beta（画面の解除ボタン削除版）
 
 実装済みコードを基に、クラスの役割と、private以外のメソッドの入力・出力・主な処理をまとめています。privateメソッドと、標準ライブラリ／Androidから継承しただけのメソッドの個別説明は省略します。Kotlinの `Unit` は「戻り値としてデータを返さない」という意味です。
 
@@ -30,7 +30,7 @@
 | --- | --- |
 | アプリ名 | FocusDPC |
 | アプリID／名前空間 | `io.github.focusdpc` |
-| バージョン | `0.1.0-beta`／versionCode 1 |
+| バージョン | `0.1.1-beta`／versionCode 2 |
 | 対応OS | Android 10（API 29）以上 |
 | compileSdk／targetSdk | 36／36 |
 | 言語・JVMターゲット | Kotlin 2.2.21／Java 17 |
@@ -48,7 +48,9 @@
 | 新しいアプリのインストールを禁止 | `addUserRestriction(DISALLOW_INSTALL_APPS)` |
 | FocusDPC自身のアンインストールを禁止 | `setUninstallBlocked(..., true)` |
 
-Device Ownerの登録・解除はADBの担当です。アプリ内の制限解除はOwner登録を残し、Private DNSは「自動」へ戻します。ADB禁止、出荷時リセット禁止、端末消去は実装していません。
+Device Ownerの登録・解除はADBの担当です。画面には制限解除ボタンや確認ダイアログがなく、操作は適用と状態更新だけです。実機の解除はADBでOwnerを外し、DNS設定が残る場合はAndroid設定画面で「自動」へ戻します。ADB禁止、出荷時リセット禁止、端末消去は実装していません。
+
+PolicyManagerの解除処理は、エミュレータの自動テストで後片付けするために残しています。ActivityやPolicyTaskRunnerからの呼出し経路はありません。
 
 ## 2. クラス構成と処理の流れ
 
@@ -76,7 +78,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 | [MainActivity.kt](../app/src/main/java/io/github/focusdpc/MainActivity.kt) | MainActivity | 画面の作成、操作の受付、状態と結果の表示 |
 | [FocusDpcApplication.kt](../app/src/main/java/io/github/focusdpc/FocusDpcApplication.kt) | FocusDpcApplication | 画面回転をまたいでPolicyTaskRunnerを保持 |
 | [PolicyTaskRunner.kt](../app/src/main/java/io/github/focusdpc/PolicyTaskRunner.kt) | PolicyTaskRunner | ワーカースレッドで処理し、結果を画面へ通知 |
-| [PolicyManager.kt](../app/src/main/java/io/github/focusdpc/PolicyManager.kt) | PolicyManager | 状態の読取りとポリシーの適用・解除 |
+| [PolicyManager.kt](../app/src/main/java/io/github/focusdpc/PolicyManager.kt) | PolicyManager | 状態の読取り、ポリシー適用、テスト後片付け用の解除 |
 | [PolicyConfig.kt](../app/src/main/java/io/github/focusdpc/PolicyConfig.kt) | PolicyConfig | NextDNSホスト名と入力形式の検証 |
 | [MyDeviceAdminReceiver.kt](../app/src/main/java/io/github/focusdpc/MyDeviceAdminReceiver.kt) | MyDeviceAdminReceiver | Androidが端末管理者として参照する登録先 |
 | [PolicyState.kt](../app/src/main/java/io/github/focusdpc/PolicyState.kt) | PolicyState／PolicyStepResult／PolicyActionResult／PolicyUiState | 状態・操作結果・画面表示用データ |
@@ -90,7 +92,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 5. メインスレッドで状態と操作結果を通知する。
 6. MainActivityが表示を更新し、ボタンを再び操作可能にする。
 
-状態更新だけの場合は手順3の変更操作を行いません。適用・解除の戻り値をそのまま「現在の状態」に流用せず、Androidの実際の状態を別に読みます。
+状態更新だけの場合は手順3の変更操作を行いません。適用結果の戻り値をそのまま「現在の状態」に流用せず、Androidの実際の状態を別に読みます。
 
 ## 3. MainActivity
 
@@ -100,7 +102,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 
 メイン画面を表示する標準Activityです。ボタン操作をPolicyTaskRunnerへ渡し、通知されたPolicyUiStateを表示します。端末管理APIは直接呼びません。
 
-画面には5つの状態、設定先ホスト名、現在のホスト名、処理結果、読取りエラーを表示します。処理中は3つのボタンを無効化し、進捗表示を出します。Android 15以上ではシステムバーや画面の切り欠きに合わせて余白を調整します。
+画面には5つの状態、設定先ホスト名、現在のホスト名、処理結果、読取りエラーを表示します。処理中は2つのボタンを無効化し、進捗表示を出します。Android 15以上ではシステムバーや画面の切り欠きに合わせて余白を調整します。
 
 ### 3.2 private以外のメソッド
 
@@ -108,7 +110,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 
 | メソッド | 入力 | 戻り値 | 主な処理／出力・副作用 |
 | --- | --- | --- | --- |
-| `onCreate(savedInstanceState: Bundle?)` | Androidから渡される保存状態。初回はnullの場合がある | Unit | レイアウトを読み込み、ホスト名を表示してボタン操作を登録。解除ボタンでは確認ダイアログを表示。独自の状態復元にはBundleを使わず、Application側の状態を参照する |
+| `onCreate(savedInstanceState: Bundle?)` | Androidから渡される保存状態。初回はnullの場合がある | Unit | レイアウトを読み込み、ホスト名を表示して適用・状態更新の操作を登録。独自の状態復元にはBundleを使わず、Application側の状態を参照する |
 | `onStart()` | なし | Unit | 状態の購読を開始。現在の状態がすぐ通知され、表示へ反映される |
 | `onResume()` | なし | Unit | 最新状態の読取りを依頼。Android設定画面やADBで変更した内容も再確認する。既に処理中なら依頼は受け付けない |
 | `onStop()` | なし | Unit | 状態の購読を解除。表示されていないActivityを通知先として保持し続けるのを防ぐ |
@@ -119,7 +121,6 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 | --- | --- | --- |
 | ポリシーを適用 | `PolicyTaskRunner.applyPolicies()` | 適用結果と最新状態を表示 |
 | 状態を更新 | `PolicyTaskRunner.refresh()` | 最新状態を表示。直前の操作結果は保持 |
-| 制限を解除（β版） | 確認後に `PolicyTaskRunner.clearBetaPolicies()` | 解除結果と最新状態を表示。ダイアログをキャンセルした場合は変更しない |
 
 ## 4. FocusDpcApplication
 
@@ -169,11 +170,10 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 | `stopObserving(listener: (PolicyUiState) -> Unit)` | 登録時と同じ関数 | Unit | 購読者を解除し、以後の通知対象から外す |
 | `refresh()` | なし | Unit | 変更操作を行わず、状態を非同期で読み直す。直前の操作結果は保持して通知する |
 | `applyPolicies()` | なし | Unit | PolicyManagerの適用処理を非同期実行し、操作結果と再取得した状態を通知する |
-| `clearBetaPolicies()` | なし | Unit | PolicyManagerの解除処理を非同期実行し、操作結果と再取得した状態を通知する |
 
 ### 5.4 実行のルール
 
-- `busy = true` の間に来たrefresh／適用／解除の依頼は、キューに積まず、その場で無視します。
+- `busy = true` の間に来たrefresh／適用の依頼は、キューに積まず、その場で無視します。
 - 受付時にbusyをtrueとして通知し、完了時にfalseとして通知します。
 - 画面回転後も同じRunnerを使うので、同じ操作を二重に開始しません。
 - 操作中の予期しないRuntimeExceptionは、汎用の失敗結果へ変換します。その後、状態を読み直します。
@@ -185,7 +185,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 
 ### 6.1 このクラスでしていること
 
-アプリ本体で端末管理APIを呼ぶ唯一のクラスです。Device Owner確認、現在の状態の取得、4項目の適用、β版の制限解除を担当します。
+アプリ本体で端末管理APIを呼ぶ唯一のクラスです。Device Owner確認、現在の状態の取得、4項目の適用を担当します。自動テストの後片付け用に、制限解除のメソッドも保持します。
 
 AndroidのDevicePolicyManagerとUserManagerを使用します。画面の部品やActivityは保持しません。
 
@@ -247,6 +247,8 @@ Owner確認を通った場合、stepsは「NextDNS → DNS変更禁止 → イ�
 **一括トランザクションではありません。** 途中で失敗しても他の項目を続け、既に成功した変更を自動で巻き戻しません。DNS失敗時に、既存のDNS変更禁止を解除する処理もありません。
 
 ### 6.5 `clearBetaPolicies(): PolicyActionResult`
+
+エミュレータの自動テスト専用の後片付け操作です。画面・PolicyTaskRunnerからは呼び出しません。実機の手順書は、このメソッドではなくADBのOwner解除を使用します。
 
 | 項目 | 内容 |
 | --- | --- |
@@ -390,7 +392,7 @@ Owner未登録など、項目処理を開始しなかった場合は概要だけ
 | --- | --- | --- |
 | `status` | PolicyState?／null | 最後に読み取った端末状態 |
 | `busy` | Boolean／false | 処理中か。ボタン無効化と進捗表示に使う |
-| `actionResult` | PolicyActionResult?／null | 最後の適用・解除結果。状態更新だけなら前の結果を残す |
+| `actionResult` | PolicyActionResult?／null | 最後の適用結果。状態更新だけなら前の結果を残す |
 
 操作結果と現在の状態は別のデータです。たとえば前回の成功文が残っていても、現在値は状態更新で別に確認します。
 
@@ -400,7 +402,7 @@ Owner未登録など、項目処理を開始しなかった場合は概要だけ
 
 | ファイル | 内容 |
 | --- | --- |
-| [activity_main.xml](../app/src/main/res/layout/activity_main.xml) | ScrollView内に状態欄、ホスト名、3つのボタン、進捗表示、操作結果を配置 |
+| [activity_main.xml](../app/src/main/res/layout/activity_main.xml) | ScrollView内に状態欄、ホスト名、2つのボタン、進捗表示、操作結果を配置 |
 | [strings.xml](../app/src/main/res/values/strings.xml) | 画面・ダイアログ・操作結果・エラーの日本語文言 |
 | [styles.xml](../app/src/main/res/values/styles.xml) | 標準Material系のライトテーマ |
 | [colors.xml](../app/src/main/res/values/colors.xml) | 文字・背景・有効状態などの色 |
@@ -428,7 +430,7 @@ Owner未登録など、項目処理を開始しなかった場合は概要だけ
 | スレッド | 担当 |
 | --- | --- |
 | メインスレッド | Activity操作、Runnerの公開メソッド、状態・購読者管理、画面への通知 |
-| 単一のワーカースレッド | ポリシー適用・解除、現在状態の取得 |
+| 単一のワーカースレッド | ポリシー適用、現在状態の取得 |
 
 DNS APIの接続確認には時間がかかるため、変更処理はメインスレッドで実行できないようチェックします。ExecutorはApplicationから保持され、Activityを閉じても実行中の処理は続きます。操作のキャンセルAPIはありません。
 
@@ -439,7 +441,7 @@ DNS APIの接続確認には時間がかかるため、変更処理はメイン�
 | NextDNSの設定先 | ソースの定数としてAPKに埋込み。変更には再ビルド |
 | 適用したDNS・制限・Owner登録 | Android側が管理。アプリ再起動後はAPIから取得 |
 | busy・最後の状態・最後の操作結果 | Application内のメモリー。プロセス終了で失われる |
-| 変更前のDNS設定 | 保存しない。解除では「自動」へ変更 |
+| 変更前のDNS設定 | 保存しない。実機ではOwner解除後に必要なら手動で「自動」へ変更。テスト用解除メソッドは「自動」へ変更 |
 | 操作履歴 | 独自のファイル／DBには保存しない。例外はAndroidのLogへ記録 |
 
 再起動でアプリが自動適用するReceiverやServiceはありません。設定の維持はAndroidが管理するポリシーに依存するため、実機で再起動後の状態を確認します。
@@ -448,7 +450,7 @@ DNS APIの接続確認には時間がかかるため、変更処理はメイン�
 
 DNSと3つの制限は、それぞれ別のAPI呼出しです。全体の概要だけでなくstepsとreadStatusの値を確認します。
 
-例：初期値のまま適用すると、NextDNSは失敗、DNS変更禁止はスキップ、インストール禁止と自身のアンインストール禁止は適用され得ます。解除も項目別であり、失敗項目があれば個別結果を確認します。
+例：初期値のまま適用すると、NextDNSは失敗、DNS変更禁止はスキップ、インストール禁止と自身のアンインストール禁止は適用され得ます。テスト用の解除処理も項目別であり、失敗項目があれば個別結果を確認します。
 
 ## 12. テスト用クラスとスクリプト
 
@@ -506,4 +508,4 @@ DNSと3つの制限は、それぞれ別のAPI呼出しです。全体の概要�
 | 表示に必要なデータの追加 | PolicyState.kt、PolicyManager、MainActivity |
 | パッケージ／管理者クラス名 | Gradle・Manifest・Kotlin・ADB手順・テストの登録名を一緒に確認 |
 
-仕様を変更する場合も、登録 → 解除テスト → 再登録 → 適用 → 制限解除 → Owner解除を確認します。現在の `testOnly` とADB復旧経路を前提にした手順書と、実装の整合性を保ってください。
+仕様を変更する場合も、登録 → ADBでの解除テスト → 再登録 → 適用 → ADBでのOwner解除 → 必要に応じDNSを手動で自動へ変更、を確認します。現在の `testOnly` とADB復旧経路を前提にした手順書と、実装の整合性を保ってください。

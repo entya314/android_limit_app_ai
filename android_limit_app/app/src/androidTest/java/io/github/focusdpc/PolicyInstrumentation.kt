@@ -86,7 +86,7 @@ class PolicyInstrumentation : Instrumentation() {
                     check(state.privateDnsChangesBlocked == false)
                     check(state.selfUninstallBlocked == false)
                     check(dpm.getGlobalPrivateDnsMode(admin) == DevicePolicyManager.PRIVATE_DNS_MODE_OPPORTUNISTIC)
-                    // 制限解除ボタンはDevice Owner自体を解除しません。
+                    // テストの後片付けはDevice Owner自体を解除しません。
                     check(state.deviceOwner == true)
                 }
                 "hostname_validation" -> {

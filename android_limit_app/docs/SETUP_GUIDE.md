@@ -1,10 +1,12 @@
 # FocusDPC β版 作業手順書
 
 - 作成日：2026-10-17
-- 対象：FocusDPC 0.1.0-beta／Windows／Android Studio／Android 10以上の実機
-- 対応する実装：[6916e86](https://github.com/entya314/android_limit_app_ai/commit/6916e863b0bcc8c01632d4f80d4d9236a52d758d)
+- 対象：FocusDPC 0.1.1-beta／Windows／Android Studio／Android 10以上の実機
+- 対応する実装：本リポジトリの0.1.1-beta（画面の解除ボタン削除版）
 
 今回のセットアップで実際につまずいた点を反映した手順です。本番スマホでも、現在のβ版を使って実機テストするための説明です。
+
+0.1.1-betaでは、画面の解除ボタンを削除しました。実機での解除は、後述するPCからのADB手順を使います。
 
 - [1. 全体の流れと用語](#1-全体の流れと用語)
 - [2. PCとプロジェクトを準備する](#2-pcとプロジェクトを準備する)
@@ -321,6 +323,7 @@ adb shell dpm set-device-owner --user 0 io.github.focusdpc/.MyDeviceAdminReceive
 画面上の成功表示に加えて、実際の動作を確認します。
 
 - [ ] アプリの5項目が上記の期待値になる。
+- [ ] 操作ボタンは「ポリシーを適用」「状態を更新」の2つで、解除ボタンが表示されない。
 - [ ] Androidの設定画面からプライベートDNSを変更できない。
 - [ ] 通常のストア／APK操作で、新しいアプリのインストールが制限される。
 - [ ] Androidの設定画面からFocusDPCをアンインストールできない。
@@ -338,41 +341,42 @@ ADBは開発・復旧経路として残しています。**ADB経由のインス
 
 ## 9. 制限の解除とアプリの削除
 
-### 9.1 制限だけを解除する
+### 9.1 ADBでDevice Ownerと制限を解除する
 
-アプリの **「制限を解除（β版）」** を押し、確認ダイアログで「解除する」を選びます。
-
-- DNS変更禁止とアプリインストール禁止を解除します。
-- FocusDPC自身のアンインストール禁止を解除します。
-- プライベートDNSを「自動」に戻します。以前のDNS設定を復元する処理ではありません。
-- Device Owner登録は残ります。
-
-各項目の操作結果と、「状態を更新」後の状態を確認してください。他の管理者も制限を設定している場合、その制限まで解除するものではありません。
-
-### 9.2 Device Ownerを解除して削除する
+**アプリ内に解除ボタンはありません。** USBデバッグを許可したPCへ接続し、対象スマホだけが接続されていることを確認して実行します。
 
 ~~~powershell
 adb shell dpm remove-active-admin --user 0 io.github.focusdpc/.MyDeviceAdminReceiver
 adb shell dumpsys device_policy
 ~~~
 
-Ownerが解除されたことを確認してから削除します。
+`Success` と表示され、Ownerが解除されたことを確認します。この管理者が設定した制限は除去されます。他の管理者による制限まで解除するものではありません。
+
+Private DNSのホスト名設定は残る可能性があります。Androidの「設定」でプライベートDNSを開き、「自動」などへ戻してください。変更前のDNS設定を復元する処理ではありません。
+
+Owner解除後にGoogleアカウントなどが残っていると、再登録の条件に引っかかる場合があります。Owner登録を保ったまま画面から制限だけを解除する機能はありません。
+
+### 9.2 アプリを削除する
+
+前項でOwnerが解除されたことを確認してから実行します。
 
 ~~~powershell
 adb uninstall io.github.focusdpc
 ~~~
 
-アプリが開けない場合も、`remove-active-admin` が復旧経路です。ただし、Private DNSのホスト名設定は残る可能性があるため、解除後にAndroid設定画面で「自動」などへ戻してください。
+アプリが開けない場合も、`remove-active-admin` が復旧経路です。
 
 ### 9.3 再ビルドしたAPKを更新する場合
 
-同じPC・同じデバッグ署名なら、再ビルド後に次で上書きします。
+同じPC・同じデバッグ署名なら、再ビルド後に次で上書きします。NextDNS定数が自分のホスト名のままであることを確認してください。
+
+解除ボタンのある0.1.0-betaから0.1.1-betaへの更新も、同じ署名で上書きします。ボタン削除のために、初期化やOwnerの再登録をする必要はありません。既存のポリシーは維持されるため、更新後に「状態を更新」で確認します。
 
 ~~~powershell
 adb install -t -r app\build\outputs\apk\debug\app-debug.apk
 ~~~
 
-`INSTALL_FAILED_UPDATE_INCOMPATIBLE` は、旧APKと新APKの署名が異なるエラーです。制限解除 → Owner解除 → 旧アプリ削除 → 新APKインストール → Owner再登録の順にやり直します。アカウントを追加した後は再登録条件に引っかかる場合があるため、その時点のエラーを確認してください。
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE` は、旧APKと新APKの署名が異なるエラーです。ADBでOwner解除 → 必要に応じてDNSを手動で自動へ変更 → 旧アプリ削除 → 新APKインストール → Owner再登録の順にやり直します。アカウントを追加した後は再登録条件に引っかかる場合があるため、その時点のエラーを確認してください。
 
 ## 10. つまずいた点と対処一覧
 
@@ -407,7 +411,7 @@ adb install -t -r app\build\outputs\apk\debug\app-debug.apk
 
 ### 11.1 会話で確認できたこと
 
-2026-10-17時点の記録です。
+2026-10-17時点、0.1.0-betaでの記録です。0.1.1-betaの解除ボタン削除後については、本番スマホで改めて確認してください。
 
 - ADBの接続一覧にはモデル `SO-52E` と表示されていました。
 - Windows／Android Studioのターミナルで `BUILD SUCCESSFUL` を確認しました。

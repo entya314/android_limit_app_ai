@@ -112,8 +112,9 @@ class PolicyManager(
     }
 
     /**
-     * β版の回復用操作です。Device Owner登録自体は残し、制限とDNS固定を解除します。
-     * 「以前のDNS値」の復元ではなく「自動」への変更です。画面でもその旨を確認します。
+     * エミュレータの自動テストで、制限を後片付けするための操作です。
+     * 画面やPolicyTaskRunnerには解除の入口を設けず、実機の復旧はADBの手順で行います。
+     * Device Owner登録自体は残し、DNSは以前の値ではなく「自動」へ変更します。
      * 解除も個別実行し、1つ失敗してもインストールやDNS編集の回復を試みます。
      */
     fun clearBetaPolicies(): PolicyActionResult {

@@ -33,8 +33,6 @@ class PolicyTaskRunner(context: Context) {
 
     fun applyPolicies() = submit { policyManager.applyPolicies() }
 
-    fun clearBetaPolicies() = submit { policyManager.clearBetaPolicies() }
-
     private fun submit(operation: (() -> PolicyActionResult)?) {
         requireMainThread()
         if (state.busy) return // 連打や画面回転による二重適用を防ぎます。

@@ -1,6 +1,6 @@
 # FocusDPC β版の検証結果
 
-検証日：2026-10-12。元の `READ_ME.txt` は変更していません。
+初版の検証日：2026-10-12。以下は0.1.0-betaの検証記録です。0.1.1-betaの更新確認は末尾に記載しています。元の `READ_ME.txt` は変更していません。
 
 ## ビルド
 
@@ -58,3 +58,22 @@ Android 10 / API 29、x86_64の新規テスト専用AVDで、標準Instrumentati
 - API 30以降の端末での実行と、実機の各メーカーの設定画面。
 
 実際のNextDNS IDに変更した後のテスト、通常のインストール画面での制限確認、実機での検証は `README.md` の手順に従って行ってください。
+
+## 0.1.1-beta：画面の解除ボタン削除
+
+確認日：2026-10-17。versionCodeは2です。
+
+- 解除ボタン、確認ダイアログ、関連する画面文言を削除しました。
+- PolicyTaskRunnerの解除メソッドを削除し、Activityから解除する呼出し経路をなくしました。
+- PolicyManagerの解除メソッドは、エミュレータ自動テストの後片付け用に保持しています。
+- `./gradlew --offline assembleDebug assembleDebugAndroidTest lintDebug --warning-mode all`：成功。
+- Android Lint：**エラー0件・警告0件**。
+- 生成APKのレイアウトをaapt2で確認し、Buttonが2つであることを確認しました。
+- APKのリソースに解除ボタン・ダイアログのIDや文言がないことを確認しました。
+- aapt2でversionCode 2、versionName 0.1.1-beta、minSdk 29、targetSdk 36、testOnly=true、INTERNET権限を確認しました。
+- `apksigner verify`：成功。
+- 手順書・設計書とREADMEを更新し、文書内リンクを確認しました。
+
+今回の更新ではテストAPKのビルドまで確認し、エミュレータと実機での実行テストは再実施していません。上記の初版の実行結果を、新版の実行結果として扱うものではありません。実機では同じ署名でAPKを上書きし、解除ボタンが表示されないことと、適用・状態更新・既存ポリシーの維持を確認してください。
+
+画面の解除を削除した版ですが、ADBの `remove-active-admin` と出荷時リセットによる復旧は可能です。実機の復旧ではOwner解除後にPrivate DNS設定が残る場合があるため、Android設定画面で「自動」などへ戻します。

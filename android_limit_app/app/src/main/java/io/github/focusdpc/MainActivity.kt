@@ -1,7 +1,6 @@
 package io.github.focusdpc
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -23,17 +22,10 @@ class MainActivity : Activity() {
 
         findViewById<TextView>(R.id.configured_hostname).text =
             getString(R.string.configured_hostname, PolicyConfig.NEXTDNS_HOSTNAME)
+        // 画面から制限を解除できないよう、適用と状態更新だけを用意します。
+        // テスト中の復旧は、手順書にあるADBからのDevice Owner解除で行います。
         findViewById<Button>(R.id.apply_button).setOnClickListener { tasks.applyPolicies() }
         findViewById<Button>(R.id.refresh_button).setOnClickListener { tasks.refresh() }
-        findViewById<Button>(R.id.clear_button).setOnClickListener {
-            // DNSは以前の値ではなく「自動」になるため、変更内容を明示します。
-            AlertDialog.Builder(this)
-                .setTitle(R.string.clear_dialog_title)
-                .setMessage(R.string.clear_dialog_message)
-                .setNegativeButton(R.string.cancel, null)
-                .setPositiveButton(R.string.clear_confirm) { _, _ -> tasks.clearBetaPolicies() }
-                .show()
-        }
     }
 
     override fun onStart() {
@@ -63,7 +55,6 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.apply_button).isEnabled = !ui.busy
         findViewById<Button>(R.id.refresh_button).isEnabled = !ui.busy
-        findViewById<Button>(R.id.clear_button).isEnabled = !ui.busy
         findViewById<ProgressBar>(R.id.progress).visibility = if (ui.busy) View.VISIBLE else View.GONE
 
         val hostView = findViewById<TextView>(R.id.current_hostname)
