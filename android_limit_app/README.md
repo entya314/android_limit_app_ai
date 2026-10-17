@@ -4,6 +4,11 @@
 
 Kotlin / Android 10（API 29）以上。対象端末は **arrows We2** ですが、まず使い捨てのAndroid Emulatorで動作確認してください。
 
+## 作業手順書・詳細設計書
+
+- [作業手順書](docs/SETUP_GUIDE.md)：Windows／Android Studioでのビルドから、実機の登録・適用・確認・解除まで。今回つまずいた点と対処も記載しています。
+- [詳細設計書](docs/DETAIL_DESIGN.md)：クラスの役割、private以外のメソッドの入力・出力・処理、データ構造と非同期処理の説明です。
+
 ## 最初に読むところ
 
 1. `app/src/main/java/io/github/focusdpc/PolicyConfig.kt`：NextDNSのホスト名を変更する場所。
@@ -182,6 +187,8 @@ Device Ownerからこの制限を設定すると、USBデバッグを含むデ�
 android_limit_app/
 ├── READ_ME.txt                         元の仕様（そのまま保存）
 ├── README.md                           この説明書
+├── docs/SETUP_GUIDE.md                  実機セットアップとトラブル対応
+├── docs/DETAIL_DESIGN.md                クラス・メソッドごとの設計
 ├── settings.gradle / build.gradle      Gradle構成
 ├── gradlew / gradlew.bat / gradle/      Gradle Wrapper
 ├── scripts/emulator_smoke_test.py       登録・解除まで行う自動テスト
