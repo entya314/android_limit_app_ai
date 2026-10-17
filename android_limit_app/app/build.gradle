@@ -14,8 +14,8 @@ android {
         applicationId = 'io.github.focusdpc'
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = '0.1.2-beta'
+        versionCode = 2
+        versionName = '0.1.1-beta'
 
         // 標準のInstrumentationでテストするため、テスト用の追加ライブラリも不要です。
         testInstrumentationRunner = 'io.github.focusdpc.PolicyInstrumentation'

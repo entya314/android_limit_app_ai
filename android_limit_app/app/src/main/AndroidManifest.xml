@@ -9,11 +9,6 @@
 
     <uses-feature android:name="android.software.device_admin" android:required="true" />
 
-    <!-- 非表示にしたPlayストアも、未導入と取り違えずに確認するために宣言します。 -->
-    <queries>
-        <package android:name="com.android.vending" />
-    </queries>
-
     <!--
         β版の重要な設定です。
         testOnly=trueにすることで、ADBのremove-active-adminでDevice Ownerを解除できます。

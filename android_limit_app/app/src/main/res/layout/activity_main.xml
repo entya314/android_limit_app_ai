@@ -66,16 +66,8 @@
                 <TextView android:id="@+id/dns_restriction_status" style="@style/StatusValue" />
             </LinearLayout>
             <LinearLayout style="@style/StatusRow">
-                <TextView style="@style/StatusLabel" android:text="@string/label_play_store_restriction" />
-                <TextView android:id="@+id/play_store_status" style="@style/StatusValue" />
-            </LinearLayout>
-            <LinearLayout style="@style/StatusRow">
-                <TextView style="@style/StatusLabel" android:text="@string/label_unknown_sources_restriction" />
-                <TextView android:id="@+id/unknown_sources_status" style="@style/StatusValue" />
-            </LinearLayout>
-            <LinearLayout style="@style/StatusRow">
-                <TextView style="@style/StatusLabel" android:text="@string/label_adb_installation" />
-                <TextView android:id="@+id/adb_install_status" style="@style/StatusValue" />
+                <TextView style="@style/StatusLabel" android:text="@string/label_install_restriction" />
+                <TextView android:id="@+id/install_status" style="@style/StatusValue" />
             </LinearLayout>
             <LinearLayout style="@style/StatusRow">
                 <TextView style="@style/StatusLabel" android:text="@string/label_uninstall_restriction" />

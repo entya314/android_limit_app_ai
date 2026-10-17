@@ -5,7 +5,6 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -35,13 +34,6 @@ class PolicyInstrumentation : Instrumentation() {
             val dpm = requireNotNull(targetContext.getSystemService(DevicePolicyManager::class.java))
             val admin = ComponentName(targetContext, MyDeviceAdminReceiver::class.java)
             val userManager = requireNotNull(targetContext.getSystemService(UserManager::class.java))
-            val playStoreInstalled = try {
-                val info = targetContext.packageManager.getApplicationInfo(
-                    PolicyManager.PLAY_STORE_PACKAGE, PackageManager.MATCH_UNINSTALLED_PACKAGES)
-                info.flags and ApplicationInfo.FLAG_INSTALLED != 0
-            } catch (_: PackageManager.NameNotFoundException) {
-                false
-            }
 
             when (scenario) {
                 "non_owner" -> {
@@ -50,21 +42,13 @@ class PolicyInstrumentation : Instrumentation() {
                     check(manager.clearBetaPolicies().summary == targetContext.getString(R.string.not_device_owner))
                     check(manager.readStatus().nextDnsConfigured == null)
                     check(manager.readStatus().selfUninstallBlocked == null)
-                    check(manager.readStatus().playStoreBlocked == null)
                 }
                 "owner_apply", "owner_repeat" -> {
                     check(manager.readStatus().deviceOwner == true)
                     val result = manager.applyPolicies()
-                    check(result.steps.size == 6)
-                    check(result.steps.drop(2).all { it.success })
+                    check(result.steps.size == 4)
                     val state = manager.readStatus()
-                    check(state.playStoreBlocked == true)
-                    check(state.unknownSourcesBlocked == true)
-                    check(state.adbInstallationAllowed == true)
-                    check(!userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS))
-                    if (playStoreInstalled) {
-                        check(dpm.isApplicationHidden(admin, PolicyManager.PLAY_STORE_PACKAGE))
-                    }
+                    check(state.appInstallationBlocked == true)
                     check(state.selfUninstallBlocked == true)
                     if (!PolicyConfig.isUsableHostname(PolicyConfig.NEXTDNS_HOSTNAME)) {
                         check(!result.steps[0].success)
@@ -74,18 +58,6 @@ class PolicyInstrumentation : Instrumentation() {
                     }
                     check(!userManager.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES))
                     check(!userManager.hasUserRestriction(UserManager.DISALLOW_FACTORY_RESET))
-                }
-                "owner_migration" -> {
-                    check(manager.clearBetaPolicies().steps.all { it.success })
-                    // 旧版の状態を実際に作り、新版適用でADBの禁止が残らないことを検証します。
-                    dpm.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
-                    check(manager.readStatus().adbInstallationAllowed == false)
-                    val result = manager.applyPolicies()
-                    check(result.steps.size == 6 && result.steps.drop(2).all { it.success })
-                    val state = manager.readStatus()
-                    check(state.deviceOwner == true && state.adbInstallationAllowed == true)
-                    check(state.playStoreBlocked == true && state.unknownSourcesBlocked == true)
-                    check(state.selfUninstallBlocked == true)
                 }
                 "owner_dns_failure" -> {
                     check(manager.readStatus().deviceOwner == true)
@@ -99,22 +71,18 @@ class PolicyInstrumentation : Instrumentation() {
                     check(!result.steps[0].success)
                     check(result.steps[0].detail == targetContext.getString(R.string.dns_host_not_serving))
                     check(!result.steps[1].success)
-                    check(result.steps.size == 6 && result.steps.drop(2).all { it.success })
+                    check(result.steps[2].success && result.steps[3].success)
                     val state = failureManager.readStatus()
                     check(state.nextDnsConfigured == false)
                     check(state.privateDnsChangesBlocked == false)
-                    check(state.playStoreBlocked == true)
-                    check(state.unknownSourcesBlocked == true)
-                    check(state.adbInstallationAllowed == true)
+                    check(state.appInstallationBlocked == true)
                     check(state.selfUninstallBlocked == true)
                 }
                 "owner_clear" -> {
                     check(manager.readStatus().deviceOwner == true)
                     check(manager.clearBetaPolicies().steps.all { it.success })
                     val state = manager.readStatus()
-                    check(state.playStoreBlocked == !playStoreInstalled)
-                    check(state.unknownSourcesBlocked == false)
-                    check(state.adbInstallationAllowed == true)
+                    check(state.appInstallationBlocked == false)
                     check(state.privateDnsChangesBlocked == false)
                     check(state.selfUninstallBlocked == false)
                     check(dpm.getGlobalPrivateDnsMode(admin) == DevicePolicyManager.PRIVATE_DNS_MODE_OPPORTUNISTIC)

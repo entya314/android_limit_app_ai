@@ -8,7 +8,6 @@ Kotlin / Android 10（API 29）以上。対象端末は **arrows We2** ですが
 
 - [作業手順書](docs/SETUP_GUIDE.md)：Windows／Android Studioでのビルドから、実機の登録・適用・確認・解除まで。今回つまずいた点と対処も記載しています。
 - [詳細設計書](docs/DETAIL_DESIGN.md)：クラスの役割、private以外のメソッドの入力・出力・処理、データ構造と非同期処理の説明です。
-- [0.1.2-betaへの更新とADBでの追加](docs/UPGRADE_012.md)：旧版の一括インストール禁止を一時解除し、Owner登録を保って更新する手順です。
 
 ## 最初に読むところ
 
@@ -27,18 +26,10 @@ Kotlin / Android 10（API 29）以上。対象端末は **arrows We2** ですが
 | --- | --- |
 | NextDNSのPrivate DNS設定 | `setGlobalPrivateDnsModeSpecifiedHost()` |
 | Private DNSの設定変更禁止 | `addUserRestriction(DISALLOW_CONFIG_PRIVATE_DNS)` |
-| Playストアの利用禁止 | `setApplicationHidden(..., "com.android.vending", true)` |
-| スマホ上で開く通常APKのインストール禁止 | `addUserRestriction(DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)` |
-| ADBインストールの許可 | 旧版の `DISALLOW_INSTALL_APPS` を `clearUserRestriction()` で解除 |
+| アプリの新規インストール禁止 | `addUserRestriction(DISALLOW_INSTALL_APPS)` |
 | FocusDPC自身のアンインストール禁止 | `setUninstallBlocked()` |
 
-**0.1.2-betaは、ADBからのアプリ追加を許可し、Playストアからの追加を禁止する版です。** Playストアは非表示・利用不可となり、閲覧や既存アプリの自動更新も止まります。通常APKの禁止はADBには適用されません。他メーカーのストアやAndroidが信頼する別のインストーラーまで一律に禁止する仕様ではありません。
-
-ビルド・Lintは成功していますが、0.1.2の実行テストはクラウドAVDのOS不調で未完走です。[検証結果](VERIFICATION.md#012-betaadb許可playストア禁止)を確認し、まずテスト用スマホで確認してください。
-
-Playストアの非表示と通常APK禁止の成功を確認してから、旧版の一括禁止を外します。どちらかが失敗した場合は一括禁止を外さず、部分失敗を表示します。旧版の制限中は新版APK自体の導入も止まるため、初回だけ[移行手順](docs/UPGRADE_012.md)が必要です。
-
-**初期値は指定どおり `YOUR_ID.dns.nextdns.io` です。** 自分のホスト名へ変更するまではDNS設定を行いません。DNS設定が失敗した場合も、ストア・通常APKの制限とFocusDPCのアンインストール禁止は個別に適用し、画面に各項目の結果を表示します。DNS設定が成功し、実際のホスト名も確認できた場合にだけ、Private DNS変更禁止を新たに有効にします。
+**初期値は指定どおり `YOUR_ID.dns.nextdns.io` です。** 自分のホスト名へ変更するまではDNS設定を行いません。DNS設定が失敗した場合も、アプリインストール禁止とFocusDPCのアンインストール禁止は個別に適用し、画面に各項目の結果を表示します。DNS設定が成功し、実際のホスト名も確認できた場合にだけ、Private DNS変更禁止を新たに有効にします。
 
 一括トランザクションではないため、部分的な適用があり得ます。失敗時に既存の制限を勝手に解除することはありません。現在の状態は毎回AndroidのAPIから読み取ります。「設定済み」は対象ホストがPrivate DNSに指定されていることを示し、現在の通信・フィルタリングが成功している保証ではありません。
 
@@ -52,7 +43,7 @@ Device Ownerでないときの適用は、**「このアプリはDevice Ownerで
 
 **0.1.1-betaから、画面の「制限を解除」ボタンと確認ダイアログを削除しました。** 画面の操作は「ポリシーを適用」と「状態を更新」の2つです。アプリ内から制限を解除する操作はありません。
 
-実機で全解除する場合は、[PCのデバッガーからの解除](docs/UPGRADE_012.md#4-pcから全ポリシーを解除する場合)でPlayストアを再表示し、DNSを「自動」へ戻します。画面やPolicyTaskRunnerからは解除を呼び出せません。ADBと出荷時リセットによる復旧は可能です。
+実機での解除は、後述のADB手順でDevice Ownerを解除し、必要ならAndroid設定画面でPrivate DNSを「自動」へ戻します。画面からの解除をなくした版であり、ADBや出荷時リセットによる復旧は可能です。PolicyManagerの解除処理はエミュレータのテスト後片付け用に残していますが、画面やPolicyTaskRunnerからは呼び出せません。
 
 ## Android Studioでのビルド
 
@@ -144,10 +135,10 @@ adb -s emulator-5554 shell dumpsys user
 
 1. Owner未登録で起動し、「ポリシーを適用」を押します。指定の未登録メッセージが表示され、クラッシュしないことを確認します。
 2. Device Ownerに登録し、画面に「有効」が表示されることを確認します。
-3. プレースホルダーのまま適用します。NextDNSは「未設定」、DNS変更禁止は「無効」、Playストア禁止・通常APK禁止・ADB許可・DPCアンインストール禁止は「有効」になることを確認します。Playストア未導入の端末では、もともと利用不可のためストア禁止は有効として扱います。
-4. 画面に解除ボタンがないことを確認します。PCからの全解除は[デバッガーでの解除手順](docs/UPGRADE_012.md#4-pcから全ポリシーを解除する場合)で行い、Playストアが再び表示されることを確認します。Owner登録はこの操作では残ります。
+3. プレースホルダーのまま適用します。NextDNSは「未設定」、DNS変更禁止は「無効」、インストール禁止とDPCアンインストール禁止は「有効」になることを確認します。
+4. 画面に解除ボタンがないことを確認します。次にADBの `remove-active-admin` でOwnerを解除し、DNS変更禁止とインストール禁止が解除されることを確認します。必要ならAndroid設定画面でPrivate DNSを「自動」へ戻します。
 5. 自分のNextDNSホスト名で再ビルドし、通信できるAVDでDevice Ownerへ再登録してから適用します。全項目が有効／設定済みになり、Android設定画面からPrivate DNSを編集できなくなることを確認します。
-6. Playストアを起動できず、スマホ上で開く通常APKのインストールとFocusDPCの削除も制限されることを確認します。一方、ADBでは新規APKの導入と同じ署名のAPK更新が成功することを確認します。
+6. 通常のAPKインストール・ストアからの新規インストール、およびAndroid設定からFocusDPCのアンインストールが制限されることを確認します。ADBは開発経路として残しているため、ADBでの操作だけを通常インストール禁止の判定に使わないでください。
 7. アプリの再起動・画面回転・ボタン連打・設定画面からの復帰を試します。DNS接続確認中もUIが固まらず、処理が二重実行されないことを確認します。
 8. 使い捨てAVDでネットワーク障害・DNS接続失敗も確認します。DNSエラーは画面に表示され、DNS変更禁止を新たに設定しないことを確認します。
 
@@ -160,18 +151,15 @@ python3 scripts/emulator_smoke_test.py --serial emulator-5554
 
 Windowsでは `python3` を `python` に置き換えます。テストは標準のInstrumentationを使用し、テスト用ライブラリも不要です。
 
-このスクリプトは、実機とOwner登録済みAVDでは実行を拒否します。従来の検証に加え、旧版制限からの移行、制限中のADB新規導入・更新・DPC自身の更新、Playストア相当パッケージの非表示を確認します。PlayストアがないAVDには空の代役APKを一時導入し、非表示で起動できなくなることと、未導入時の動作を検証します。本物のGoogle Playでの通信・更新を再現するテストではありません。
-
-代役APKはSDK Build Tools 36.0.0とビルド時のdebug.keystoreで作成します。終了時は、このスクリプトが登録したOwnerだけを解除し、テストAPKと自分で入れた代役APKを削除します。既存のPlayストアを代役で置換しません。FocusDPC本体は未登録状態で残します。失敗時も回復処理を試みますが、エミュレータ切断時などは下記の手動解除手順を使用してください。
+このスクリプトは、実機とOwner登録済みAVDでは実行を拒否します。ホスト名の入力検証、未登録時の適用・解除、Owner登録後の適用、再適用、DNS接続失敗、制限解除、ADBでのOwner解除を検証します。終了時に、このスクリプトが登録したDevice Ownerを解除します。テストAPKは削除し、FocusDPC本体は未登録状態で残します。失敗時も回復処理を試みますが、エミュレータ切断時などは下記の手動解除手順を使用してください。
 
 実際のNextDNSホストへの接続成功・フィルタリング確認は、自分のIDとDNS over TLSに接続可能なネットワークで行ってください。自動テストでダミーの成功結果を作って、実際のDNS接続が確認できたことにはしません。
 
 ## 制限・Device Ownerを解除して削除
 
-1. 先に[PCからの全ポリシー解除](docs/UPGRADE_012.md#4-pcから全ポリシーを解除する場合)でPlayストアを再表示します。Ownerだけを先に外すと、OSによっては非表示状態が残る場合があります。
-2. 次のADBコマンドでDevice Ownerを解除します。
-3. Ownerがなくなったことを確認します。Private DNSの設定値が残る場合はAndroid設定画面から「自動」などへ戻します。
-4. アプリを使わない場合はアンインストールします。
+1. 次のADBコマンドでDevice Ownerを解除します。
+2. Ownerがなくなったことを確認します。管理者の制限は除去されますが、Private DNSの設定値が残る場合はAndroid設定画面から「自動」などへ戻します。
+3. アプリを使わない場合はアンインストールします。
 
 ```sh
 adb -s emulator-5554 shell dpm remove-active-admin --user 0 io.github.focusdpc/.MyDeviceAdminReceiver
@@ -233,8 +221,6 @@ android_limit_app/
 - [DevicePolicyManager / Private DNS設定](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#setGlobalPrivateDnsModeSpecifiedHost(android.content.ComponentName,%20java.lang.String))：Device Owner専用のブロッキング処理、成功・失敗コードを確認。
 - [UserManager / Private DNS変更禁止](https://developer.android.com/reference/android/os/UserManager#DISALLOW_CONFIG_PRIVATE_DNS)。
 - [UserManager / インストール禁止](https://developer.android.com/reference/android/os/UserManager#DISALLOW_INSTALL_APPS)。
-- [UserManager / 提供元不明アプリ禁止](https://developer.android.com/reference/android/os/UserManager#DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)：ADBはこの禁止の対象外です。
-- [DevicePolicyManager / アプリ非表示](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#setApplicationHidden(android.content.ComponentName,%20java.lang.String,%20boolean))：非表示のパッケージは利用不可となり、APKとデータは残ります。
 - [UserManager / デバッグ機能の制限](https://developer.android.com/reference/android/os/UserManager#DISALLOW_DEBUGGING_FEATURES)。
 - [ADB / Device Policy Managerコマンド](https://developer.android.com/tools/adb#dpm)：`testOnly` と `remove-active-admin` の条件を確認。
 - [AOSP / Android 10のDevicePolicyManager実装](https://github.com/aosp-mirror/platform_frameworks_base/blob/android10-release/core/java/android/app/admin/DevicePolicyManager.java)：DNS接続確認がアプリ側で行われることを確認。Manifestの通信権限とワーカースレッドを使用します。

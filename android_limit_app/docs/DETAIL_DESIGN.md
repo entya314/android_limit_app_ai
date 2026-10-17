@@ -1,8 +1,8 @@
 # FocusDPC β版 詳細設計書
 
 - 作成日：2026-10-17
-- 対象：FocusDPC 0.1.2-beta
-- 対応する実装：本リポジトリの0.1.2-beta（ADB許可・Playストア禁止版）
+- 対象：FocusDPC 0.1.1-beta
+- 対応する実装：本リポジトリの0.1.1-beta（画面の解除ボタン削除版）
 
 実装済みコードを基に、クラスの役割と、private以外のメソッドの入力・出力・主な処理をまとめています。privateメソッドと、標準ライブラリ／Androidから継承しただけのメソッドの個別説明は省略します。Kotlinの `Unit` は「戻り値としてデータを返さない」という意味です。
 
@@ -30,7 +30,7 @@
 | --- | --- |
 | アプリ名 | FocusDPC |
 | アプリID／名前空間 | `io.github.focusdpc` |
-| バージョン | `0.1.2-beta`／versionCode 3 |
+| バージョン | `0.1.1-beta`／versionCode 2 |
 | 対応OS | Android 10（API 29）以上 |
 | compileSdk／targetSdk | 36／36 |
 | 言語・JVMターゲット | Kotlin 2.2.21／Java 17 |
@@ -39,20 +39,18 @@
 | 非同期処理 | Javaの単一スレッドExecutorとAndroidのmainExecutor |
 | 追加の実行時ライブラリ | Kotlin標準ライブラリ |
 
-実行する設定は6項目です。
+実行する設定は4項目です。
 
 | 設定 | Androidの主なAPI |
 | --- | --- |
 | NextDNSをPrivate DNSの指定ホストに設定 | `setGlobalPrivateDnsModeSpecifiedHost()` |
 | Private DNSの変更を禁止 | `addUserRestriction(DISALLOW_CONFIG_PRIVATE_DNS)` |
-| Playストアを非表示・利用不可にする | `setApplicationHidden(..., "com.android.vending", true)` |
-| 通常APKをスマホ上で導入する経路を禁止 | `addUserRestriction(DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)` |
-| ADBインストールを許可 | 旧版の `DISALLOW_INSTALL_APPS` を `clearUserRestriction()` で解除 |
+| 新しいアプリのインストールを禁止 | `addUserRestriction(DISALLOW_INSTALL_APPS)` |
 | FocusDPC自身のアンインストールを禁止 | `setUninstallBlocked(..., true)` |
 
-Device Ownerの登録・解除はADBの担当です。画面には制限解除ボタンや確認ダイアログがなく、操作は適用と状態更新だけです。全解除はPCのデバッガーから行い、Playストアを再表示してから必要に応じOwnerをADBで外します。ADB禁止、出荷時リセット禁止、端末消去は実装していません。
+Device Ownerの登録・解除はADBの担当です。画面には制限解除ボタンや確認ダイアログがなく、操作は適用と状態更新だけです。実機の解除はADBでOwnerを外し、DNS設定が残る場合はAndroid設定画面で「自動」へ戻します。ADB禁止、出荷時リセット禁止、端末消去は実装していません。
 
-PolicyManagerの解除処理は、エミュレータの後片付けと、許可済みPCのデバッガーからの全解除に使います。ActivityやPolicyTaskRunnerからの通常操作による呼出し経路はありません。Playストアの非表示により閲覧・自動更新も停止し、他メーカーのストア等をすべて自動検出して禁止する機能はありません。
+PolicyManagerの解除処理は、エミュレータの自動テストで後片付けするために残しています。ActivityやPolicyTaskRunnerからの呼出し経路はありません。
 
 ## 2. クラス構成と処理の流れ
 
@@ -104,7 +102,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 
 メイン画面を表示する標準Activityです。ボタン操作をPolicyTaskRunnerへ渡し、通知されたPolicyUiStateを表示します。端末管理APIは直接呼びません。
 
-画面には7つの状態、設定先ホスト名、現在のホスト名、処理結果、読取りエラーを表示します。処理中は2つのボタンを無効化し、進捗表示を出します。Android 15以上ではシステムバーや画面の切り欠きに合わせて余白を調整します。
+画面には5つの状態、設定先ホスト名、現在のホスト名、処理結果、読取りエラーを表示します。処理中は2つのボタンを無効化し、進捗表示を出します。Android 15以上ではシステムバーや画面の切り欠きに合わせて余白を調整します。
 
 ### 3.2 private以外のメソッド
 
@@ -187,7 +185,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 
 ### 6.1 このクラスでしていること
 
-アプリ本体で端末管理APIを呼ぶ唯一のクラスです。Device Owner確認、現在の状態の取得、6項目の適用を担当します。テストの後片付け・PCのデバッガーからの全解除用メソッドも保持します。
+アプリ本体で端末管理APIを呼ぶ唯一のクラスです。Device Owner確認、現在の状態の取得、4項目の適用を担当します。自動テストの後片付け用に、制限解除のメソッドも保持します。
 
 AndroidのDevicePolicyManagerとUserManagerを使用します。画面の部品やActivityは保持しません。
 
@@ -201,8 +199,6 @@ AndroidのDevicePolicyManagerとUserManagerを使用します。画面の部品�
 | `nextDnsHostname` | 設定・比較に使うホスト名。省略時はPolicyConfigの定数。テストでは失敗用ホストを注入できる |
 
 出力はPolicyManagerのインスタンスです。生成時にDevicePolicyManager、UserManager、MyDeviceAdminReceiverのComponentNameを準備します。必要なサービスが取得できない場合は生成に失敗します。
-
-公開定数 `PolicyManager.PLAY_STORE_PACKAGE` は `com.android.vending` です。Manifestのqueriesも同じパッケージ名にします。NextDNSの個人設定を編集したPolicyConfig.ktへの変更を避けるため、管理対象の固定値はこちらに置きます。
 
 ### 6.3 `readStatus(): PolicyState`
 
@@ -218,14 +214,11 @@ AndroidのDevicePolicyManagerとUserManagerを使用します。画面の部品�
 1. 自分がDevice Ownerかを調べる。
 2. OwnerならPrivate DNSのモード・ホスト名を取得する。
 3. DNSが「指定ホスト名」モードで、設定先と実際のホスト名が一致すればNextDNS設定済みと判定する。比較は大文字・小文字を区別しない。
-4. DNS変更禁止の実効状態をUserManagerで取得する。
-5. Ownerなら、Playストアが未導入または非表示なら利用禁止と判定する。未導入はPackageManagerのNameNotFoundException、導入状態はMATCH_UNINSTALLED_PACKAGESとFLAG_INSTALLEDで判定する。非表示を未導入と取り違えないようManifestのqueriesも使う。
-6. 通常APK禁止は、提供元不明アプリ禁止のグローバル制限またはユーザー制限が有効ならtrueとする。
-7. ADB許可は、DISALLOW_INSTALL_APPSとDISALLOW_DEBUGGING_FEATURESが両方無効ならtrueとする。USB接続やRSA承認の完了を判定する機能ではない。
-8. Ownerなら、自分のアンインストール禁止状態を取得する。
-9. 各読取りのRuntimeExceptionを捕捉し、取得できない値はnull、説明文はreadErrorsに格納する。重複する説明文はまとめる。他の管理者による実効制限も表示する。
+4. DNS変更禁止とアプリインストール禁止の実効状態をUserManagerで取得する。他の管理者による制限も表示に反映される。
+5. Ownerなら、自分のアンインストール禁止状態を取得する。
+6. 各読取りのRuntimeExceptionを捕捉し、取得できない値はnull、説明文はreadErrorsに格納する。重複する説明文はまとめる。
 
-Ownerでなければ、権限が必要なDNSモード／ホスト名・Playストア非表示・自身のアンインストール禁止は取得せず、未確認として返します。DNSのモードが不明な場合も「未確認」です。
+Ownerでなければ、権限が必要なDNSモード／ホスト名と自身のアンインストール禁止は取得せず、未確認として返します。DNSのモードが不明な場合も「未確認」です。
 
 DNSが「自動」など別モードならnextDnsConfiguredはfalseです。この判定は設定値の確認であり、NextDNSへの疎通監視やフィルタリング確認はしません。
 
@@ -235,7 +228,7 @@ DNSが「自動」など別モードならnextDnsConfiguredはfalseです。こ�
 | --- | --- |
 | 入力 | 引数なし。設定先ホスト名、管理者コンポーネント、自分のパッケージ名を使用 |
 | 戻り値 | 全体の概要と項目別の成功・失敗を含むPolicyActionResult |
-| 端末への変更 | Private DNS設定、DNS変更禁止、Playストア非表示、通常APK禁止、旧版の一括禁止解除、自身のアンインストール禁止 |
+| 端末への変更 | Private DNS設定、DNS変更禁止、インストール禁止、自身のアンインストール禁止 |
 | 呼出しスレッド | 必ずワーカースレッド。メインスレッドからはIllegalStateException |
 
 処理順序：
@@ -245,37 +238,33 @@ DNSが「自動」など別モードならnextDnsConfiguredはfalseです。こ�
 3. 形式が正しければPrivate DNS設定APIを呼ぶ。DNS over TLSへの接続確認を伴う。
 4. APIの成功コードに加え、実際のDNSモードとホスト名を再取得して反映を確認する。
 5. DNS設定の成功を確認した場合だけ、DNS変更禁止を追加する。失敗時はこの追加をスキップする。
-6. DNSの成否にかかわらず、Playストアを非表示にする。既に非表示なら再設定を省き、未導入なら既に利用不可として成功扱いにする。設定APIの戻り値と実際の非表示状態を確認する。
-7. 提供元不明アプリのグローバル禁止を追加し、実効状態を確認する。これはADBの導入経路を止めない。
-8. Playストア禁止と通常APK禁止が成功した場合だけ、旧版のDISALLOW_INSTALL_APPSを解除する。実効一括禁止やデバッグ禁止が残れば失敗結果にする。前段が失敗した場合は解除をスキップし、既存の一括禁止を保持する。
-9. 自分のアンインストール禁止を試みる。
-10. 全項目の結果をまとめて返す。
+6. DNSの成否にかかわらず、アプリインストール禁止を試みる。
+7. DNSの成否にかかわらず、自分のアンインストール禁止を試みる。
+8. 全項目の結果をまとめて返す。
 
-Owner確認を通った場合、stepsは「NextDNS → DNS変更禁止 → Playストア禁止 → 通常APK禁止 → ADB許可 → DPCアンインストール禁止」の6件です。スキップも `success = false` と説明文を持つ1件として入ります。全件成功なら完了、それ以外は一部失敗の概要になります。
+Owner確認を通った場合、stepsは「NextDNS → DNS変更禁止 → インストール禁止 → DPCアンインストール禁止」の4件です。スキップしたDNS変更禁止も、`success = false` と説明文を持つ1件として入ります。全件成功なら完了、それ以外は一部失敗の概要になります。
 
 **一括トランザクションではありません。** 途中で失敗しても他の項目を続け、既に成功した変更を自動で巻き戻しません。DNS失敗時に、既存のDNS変更禁止を解除する処理もありません。
 
 ### 6.5 `clearBetaPolicies(): PolicyActionResult`
 
-エミュレータの後片付けと、許可済みPCからのデバッガー操作による全解除に使います。画面・PolicyTaskRunnerからは呼び出しません。[PCからの解除手順](UPGRADE_012.md#4-pcから全ポリシーを解除する場合)ではreadStatusのワーカースレッドで停止して実行します。
+エミュレータの自動テスト専用の後片付け操作です。画面・PolicyTaskRunnerからは呼び出しません。実機の手順書は、このメソッドではなくADBのOwner解除を使用します。
 
 | 項目 | 内容 |
 | --- | --- |
 | 入力 | 引数なし。自分の管理者コンポーネントとパッケージ名を使用 |
-| 戻り値 | 全体の概要と6項目の解除結果を含むPolicyActionResult |
-| 端末への変更 | 自分の制限と旧版の一括禁止を解除し、Playストアを再表示、Private DNSを「自動」へ変更 |
+| 戻り値 | 全体の概要と4項目の解除結果を含むPolicyActionResult |
+| 端末への変更 | 自分が設定した3つの制限を解除し、Private DNSを「自動」へ変更 |
 | 呼出しスレッド | 必ずワーカースレッド。メインスレッドからはIllegalStateException |
 
 処理順序：
 
 1. Device Ownerか確認する。未登録・確認失敗なら説明結果を返して終了する。
 2. 自分が設定したDNS変更禁止を解除する。
-3. 自分が設定した提供元不明アプリのグローバル禁止を解除する。
-4. 旧版のDISALLOW_INSTALL_APPSを解除する。
-5. 導入済みのPlayストアが非表示なら、APIで再表示し、戻り値と状態を確認する。
-6. 自分のアンインストール禁止を解除する。
-7. `setGlobalPrivateDnsModeOpportunistic()` でDNSを「自動」にし、戻りコードを確認する。
-8. 各結果をまとめて返す。
+3. 自分が設定したアプリインストール禁止を解除する。
+4. 自分のアンインストール禁止を解除する。
+5. `setGlobalPrivateDnsModeOpportunistic()` でDNSを「自動」にし、戻りコードを確認する。
+6. 各結果をまとめて返す。
 
 1つの解除が失敗しても残りを試みます。Device Owner登録自体は解除しません。以前のDNS設定を保存していないため、変更前のホスト名やモードを復元する機能ではありません。
 
@@ -367,9 +356,7 @@ ADBのOwner登録・解除と、PolicyManagerのComponentNameの両方で使用�
 | `deviceOwner` | Boolean? | 自分がDevice Ownerか |
 | `nextDnsConfigured` | Boolean? | 指定ホスト名モードで、設定先のホスト名と一致するか |
 | `privateDnsChangesBlocked` | Boolean? | DNS変更禁止の実効状態 |
-| `playStoreBlocked` | Boolean? | Playストアが非表示または未導入で利用不可か。未登録ならnull |
-| `unknownSourcesBlocked` | Boolean? | 提供元不明アプリ禁止の実効状態。ADBは対象外 |
-| `adbInstallationAllowed` | Boolean? | 一括インストール禁止・デバッグ禁止がともに無効か。接続確認ではない |
+| `appInstallationBlocked` | Boolean? | アプリインストール禁止の実効状態 |
 | `selfUninstallBlocked` | Boolean? | FocusDPC自身のアンインストール禁止状態 |
 | `currentDnsHostname` | String? | Androidから取得した現在のDNSホスト名。未指定・未取得ならnullになり得る |
 | `readErrors` | List<String> | 読取り失敗の説明文。既定値は空リスト |
@@ -382,7 +369,7 @@ Boolean?は、true＝有効／設定済み、false＝無効／未設定、null�
 
 | プロパティ／コンストラクター入力 | 型 | 意味 |
 | --- | --- | --- |
-| `label` | String | 「NextDNS」「Playストア利用禁止」などの項目名 |
+| `label` | String | 「NextDNS」「アプリインストール禁止」などの項目名 |
 | `success` | Boolean | 項目が成功したか。スキップもfalse |
 | `detail` | String | 「適用済み」「解除済み」、エラー理由など |
 
@@ -432,7 +419,6 @@ Owner未登録など、項目処理を開始しなかった場合は概要だけ
 | `android:allowBackup="false"` とバックアップXML | アプリデータのバックアップを無効化。復元でOwner登録を再現する設計ではない |
 | MainActivityのMAIN／LAUNCHER | ランチャーからの起動 |
 | Receiverの `BIND_DEVICE_ADMIN` | 管理用通知を送れる呼出し元をシステム権限で制限 |
-| queries内の `com.android.vending` | Android 11以降も、非表示にしたPlayストアの導入状態を確認する |
 | [device_admin.xml](../app/src/main/res/xml/device_admin.xml) | 管理者メタデータ。uses-policiesは空で、端末消去などの従来型管理ポリシーは宣言しない |
 
 バックアップ用XMLは [backup_rules.xml](../app/src/main/res/xml/backup_rules.xml) と [data_extraction_rules.xml](../app/src/main/res/xml/data_extraction_rules.xml) です。
@@ -462,9 +448,9 @@ DNS APIの接続確認には時間がかかるため、変更処理はメイン�
 
 ### 11.3 部分成功の意味
 
-DNSと各制限は、それぞれ別のAPI呼出しです。全体の概要だけでなくstepsとreadStatusの値を確認します。
+DNSと3つの制限は、それぞれ別のAPI呼出しです。全体の概要だけでなくstepsとreadStatusの値を確認します。
 
-例：初期値のまま適用すると、NextDNSは失敗、DNS変更禁止はスキップ、Playストア・通常APKの禁止とADB許可、自身の削除禁止は適用され得ます。ストアや通常APKの制限が失敗した場合は旧版の一括禁止を解除しません。全解除も項目別であり、失敗項目があれば個別結果を確認します。
+例：初期値のまま適用すると、NextDNSは失敗、DNS変更禁止はスキップ、インストール禁止と自身のアンインストール禁止は適用され得ます。テスト用の解除処理も項目別であり、失敗項目があれば個別結果を確認します。
 
 ## 12. テスト用クラスとスクリプト
 
@@ -485,9 +471,8 @@ DNSと各制限は、それぞれ別のAPI呼出しです。全体の概要だ�
 | --- | --- |
 | `hostname_validation` | INTERNET権限、初期値・URL・空白などの拒否、正しい形式の受入れ |
 | `non_owner` | 未登録時の状態、適用・解除の未登録メッセージ、権限が必要な状態のnull |
-| `owner_apply` | 適用結果6件、Playストア・通常APK禁止とADB許可、初期値の扱い、出荷時リセットを禁止していないこと |
+| `owner_apply` | 適用結果4件、制限反映、初期値の扱い、ADB・出荷時リセットを禁止していないこと |
 | `owner_repeat` | 同じ適用検証を再度実行し、再適用の動作を確認 |
-| `owner_migration` | 旧版の一括インストール禁止を作ってから、新版適用で解除し、Ownerを保持すること |
 | `owner_dns_failure` | 予約ドメイン `focusdpc-test.invalid` を注入し、実際のDNS接続失敗と他の制限の適用を確認 |
 | `owner_clear` | 制限解除、DNS自動、Owner登録が残ること |
 
@@ -507,9 +492,7 @@ DNSと各制限は、それぞれ別のAPI呼出しです。全体の概要だ�
 
 事前条件は、シリアルが `emulator-` で始まること、hardwareがranchu/goldfishであること、起動完了済み、既存Device Ownerがないことです。アプリAPKとテストAPKは先にビルドしておく必要があります。
 
-7種類のシナリオを実行します。Playストア未導入のAOSPでは、代役APKを一時導入して非表示と起動拒否を確認し、代役削除後の未導入経路も確認します。その場合、再確認と後片付けを含めInstrumentationは12回です。本物のPlayストアがあるAVDでは代役を導入せず、未導入経路の2回を省きます。
-
-制限中にテストAPKを削除してADBで新規導入・上書きし、FocusDPC本体も上書きして、その後の状態が維持されることを確認します。`am instrument` は成功マーカーも確認します。最後に、自分で登録したOwnerを解除し、テストAPKと自分で入れた代役だけを削除します。本体アプリは未登録状態で残します。代役の生成にはBuild Tools 36.0.0とビルド時のdebug.keystoreが必要です。
+6種類のシナリオを、正常時は再確認と後片付けを含め9回実行します。`am instrument` の終了コードだけに頼らず、成功マーカーも確認します。最後に、自分で登録したOwnerだけを解除し、テストAPKを削除します。本体アプリは未登録状態で残します。
 
 切断などで解除処理が完了しない場合は、作業手順書のADB解除を使います。実際のNextDNS IDでの接続成功・フィルタリングや実機固有の動作は、手動確認の担当です。
 
