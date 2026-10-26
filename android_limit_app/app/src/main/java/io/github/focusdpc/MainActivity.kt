@@ -23,7 +23,7 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.configured_hostname).text =
             getString(R.string.configured_hostname, PolicyConfig.NEXTDNS_HOSTNAME)
         // 画面から制限を解除できないよう、適用と状態更新だけを用意します。
-        // テスト中の復旧は、手順書にあるADBからのDevice Owner解除で行います。
+        // 更新時の一時許可はPCツール、管理自体の終了は手順書のOwner解除を使います。
         findViewById<Button>(R.id.apply_button).setOnClickListener { tasks.applyPolicies() }
         findViewById<Button>(R.id.refresh_button).setOnClickListener { tasks.refresh() }
     }

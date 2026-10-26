@@ -1,8 +1,8 @@
 # FocusDPC β版 詳細設計書
 
 - 作成日：2026-10-17
-- 対象：FocusDPC 0.1.1-beta
-- 対応する実装：本リポジトリの0.1.1-beta（画面の解除ボタン削除版）
+- 対象：FocusDPC 0.1.3-beta
+- 対応する実装：本リポジトリの0.1.3-beta（PCからの30分一時許可版）
 
 実装済みコードを基に、クラスの役割と、private以外のメソッドの入力・出力・主な処理をまとめています。privateメソッドと、標準ライブラリ／Androidから継承しただけのメソッドの個別説明は省略します。Kotlinの `Unit` は「戻り値としてデータを返さない」という意味です。
 
@@ -19,6 +19,7 @@
 - [11. スレッド・状態保持・エラー処理](#11-スレッド状態保持エラー処理)
 - [12. テスト用クラスとスクリプト](#12-テスト用クラスとスクリプト)
 - [13. 変更する場合の入口](#13-変更する場合の入口)
+- [14. PCからの一時許可](#14-pcからの一時許可)
 
 関連資料：[作業手順書](SETUP_GUIDE.md)／[README](../README.md)／[検証結果](../VERIFICATION.md)
 
@@ -30,7 +31,7 @@
 | --- | --- |
 | アプリ名 | FocusDPC |
 | アプリID／名前空間 | `io.github.focusdpc` |
-| バージョン | `0.1.1-beta`／versionCode 2 |
+| バージョン | `0.1.3-beta`／versionCode 4 |
 | 対応OS | Android 10（API 29）以上 |
 | compileSdk／targetSdk | 36／36 |
 | 言語・JVMターゲット | Kotlin 2.2.21／Java 17 |
@@ -48,7 +49,7 @@
 | 新しいアプリのインストールを禁止 | `addUserRestriction(DISALLOW_INSTALL_APPS)` |
 | FocusDPC自身のアンインストールを禁止 | `setUninstallBlocked(..., true)` |
 
-Device Ownerの登録・解除はADBの担当です。画面には制限解除ボタンや確認ダイアログがなく、操作は適用と状態更新だけです。実機の解除はADBでOwnerを外し、DNS設定が残る場合はAndroid設定画面で「自動」へ戻します。ADB禁止、出荷時リセット禁止、端末消去は実装していません。
+Device Ownerの登録・解除はADBの担当です。画面には制限解除ボタンや確認ダイアログがなく、操作は適用と状態更新だけです。インストール・更新のための解除は14章のPC一時許可を使います。全体の管理を終了する場合はADBでOwnerを外し、DNS設定が残る場合はAndroid設定画面で「自動」へ戻します。ADB禁止、出荷時リセット禁止、端末消去は実装していません。
 
 PolicyManagerの解除処理は、エミュレータの自動テストで後片付けするために残しています。ActivityやPolicyTaskRunnerからの呼出し経路はありません。
 
@@ -71,7 +72,7 @@ flowchart TD
 
 ### 2.2 ファイルと役割
 
-Kotlin本体は7ファイル、10個のクラス／objectで構成します。テスト用クラスは別に1個あります。
+Kotlin本体は従来の7ファイルに、14章の一時許可用4ファイルを追加しています。InstrumentationとJUnitのテストは別に保持します。
 
 | ファイル | クラス／object | 役割 |
 | --- | --- | --- |
@@ -185,7 +186,7 @@ Kotlin本体は7ファイル、10個のクラス／objectで構成します。�
 
 ### 6.1 このクラスでしていること
 
-アプリ本体で端末管理APIを呼ぶ唯一のクラスです。Device Owner確認、現在の状態の取得、4項目の適用を担当します。自動テストの後片付け用に、制限解除のメソッドも保持します。
+通常のポリシーの管理窓口です。Device Owner確認、現在の状態の取得、4項目の適用を担当し、一時許可のインストール制限操作はInstallMaintenanceManagerへ委譲します。自動テストの後片付け用に、制限解除のメソッドも保持します。
 
 AndroidのDevicePolicyManagerとUserManagerを使用します。画面の部品やActivityは保持しません。
 
@@ -425,6 +426,8 @@ Owner未登録など、項目処理を開始しなかった場合は概要だけ
 
 ## 11. スレッド・状態保持・エラー処理
 
+0.1.3-betaでは一時許可の期限だけを端末保護ストレージへ保存します。下記の従来の画面状態の説明とは別に、14章の復帰処理を追加しています。
+
 ### 11.1 スレッドの分担
 
 | スレッド | 担当 |
@@ -443,8 +446,9 @@ DNS APIの接続確認には時間がかかるため、変更処理はメイン�
 | busy・最後の状態・最後の操作結果 | Application内のメモリー。プロセス終了で失われる |
 | 変更前のDNS設定 | 保存しない。実機ではOwner解除後に必要なら手動で「自動」へ変更。テスト用解除メソッドは「自動」へ変更 |
 | 操作履歴 | 独自のファイル／DBには保存しない。例外はAndroidのLogへ記録 |
+| 一時許可の期限 | 端末保護ストレージのSharedPreferences。同期保存し、プロセス終了・本体更新をまたいで保持 |
 
-再起動でアプリが自動適用するReceiverやServiceはありません。設定の維持はAndroidが管理するポリシーに依存するため、実機で再起動後の状態を確認します。
+通常のDNS等の再適用は行いません。一時許可については14章のReceiverを追加し、再起動時にインストール禁止へ戻します。その他の設定の維持はAndroidが管理するポリシーに依存するため、実機で再起動後の状態を確認します。
 
 ### 11.3 部分成功の意味
 
@@ -509,3 +513,75 @@ DNSと3つの制限は、それぞれ別のAPI呼出しです。全体の概要�
 | パッケージ／管理者クラス名 | Gradle・Manifest・Kotlin・ADB手順・テストの登録名を一緒に確認 |
 
 仕様を変更する場合も、登録 → ADBでの解除テスト → 再登録 → 適用 → ADBでのOwner解除 → 必要に応じDNSを手動で自動へ変更、を確認します。現在の `testOnly` とADB復旧経路を前提にした手順書と、実装の整合性を保ってください。
+
+
+## 14. PCからの一時許可
+
+追加日：2026-10-26。使用方法は[PC一時許可手順](PC_MAINTENANCE.md)を参照してください。
+
+### 14.1 InstallMaintenanceController
+
+Androidから独立した期限・失敗時の状態管理です。コンストラクターは `Backend` を受け取り、30分の時間値はクラス内に固定します。呼出しの直列化はManagerが担当します。
+
+| private以外のメソッド | 入力 | 出力 | 処理 |
+| --- | --- | --- | --- |
+| `open()` | なし | `Result` | Owner・既存の禁止を確認し、期限保存とアラーム予約が成功してから解除。許可中なら元の期限を返す |
+| `status()` | なし | `Result` | 現状を返す。期限切れ・記録不正・別の起動回数なら禁止へ戻す。許可を新規開始しない |
+| `close()` | なし | `Result` | インストール禁止を有効化し、実効値を確認後に記録と予約を消す |
+| `onBoot()` | なし | `Result` | 保存済みの許可があれば終了。Owner登録だけの未設定端末には新たな禁止を課さない |
+
+`Lease` は開始・終了の経過時間（Long）と起動回数（Int）。`Result` は成功可否（Boolean）、結果コード（String）、残り秒数（Long）です。日時設定値は期限判定に使いません。
+
+`Backend` はAndroidとテスト用の差し替え口です。
+
+| メソッド | 入力 | 出力・処理 |
+| --- | --- | --- |
+| `isOwner()` / `isBlocked()` | なし | Boolean。実際のOwner／禁止状態を読む |
+| `setBlocked(blocked)` | Boolean | Unit。インストール禁止だけを設定／解除 |
+| `elapsedRealtime()` / `bootCount()` | なし | Long／Int。経過時間と起動回数を読む |
+| `load()` | なし | Lease?。記録を取得。不正形式は例外 |
+| `save(lease)` | Lease? | Unit。同期保存。nullは記録削除。保存失敗は例外 |
+| `schedule(deadline)` | Long | Unit。指定の経過時刻に期限処理を予約。失敗は例外 |
+| `cancel()` | なし | Unit。期限予約を取消 |
+| `retry()` | なし | Unit。禁止への復帰に失敗した場合の再試行を予約 |
+
+### 14.2 InstallMaintenanceManager
+
+Contextを受け取り、ControllerのBackendを実装します。DevicePolicyManagerでは `DISALLOW_INSTALL_APPS` だけを操作します。期限記録はdevice-protected SharedPreferencesへ同期保存し、`AlarmManager.setExactAndAllowWhileIdle` の `ELAPSED_REALTIME_WAKEUP` を使います。Android 12以上では正確なアラームが使えることを解除前に確認します。
+
+| private以外のメソッド | 入力 | 出力 | 処理 |
+| --- | --- | --- | --- |
+| `open()` / `status()` / `close()` / `onBoot()` | なし | Controller.Result | 共有ロック内で同名のController処理を実行し、失敗コードをログへ記録 |
+| `reconcileAsync(afterBoot, forceClose, onComplete)` | Boolean、Boolean、() -> Unit（全て省略可） | Unit | DNS処理と別の直列ワーカーで復帰を実行し、finallyで完了通知。forceCloseは復帰失敗時の再試行用で、保存記録がなくても禁止を実行 |
+| `withLock(action)` | () -> T | T | テスト後片付けの複合操作をPC操作と競合させずに実行 |
+
+### 14.3 InstallMaintenanceProvider
+
+ADBからの `content call` を受けるContentProviderです。ManifestでDUMP権限を要求し、さらにBinderの呼出元UIDが2000であることを確認します。PCの認証はAndroidのADB鍵と接続許可に委ねます。入力された名前・引数による自己申告の認証はしません。
+
+| private以外のメソッド | 入力 | 出力 | 処理 |
+| --- | --- | --- | --- |
+| `onCreate()` | なし | Boolean | true。初期化だけでは制限を変更しない |
+| `call(method, arg, extras)` | open/status/close、arg=null、extrasなし | Bundle | 呼出元を確認後、Binderのidentityを切り替えてManagerを呼ぶ。結果JSONをBase64にしてpayloadへ格納。時間指定や未知のメソッドは拒否 |
+| `query(...)` / `getType(uri)` / `insert(...)` / `delete(...)` / `update(...)` | ContentProvider標準引数 | 通常結果なし | 全てUnsupportedOperationException。call以外のAPIは提供しない |
+
+### 14.4 InstallMaintenanceReceiver
+
+Androidから期限・起動・本体上書き更新・正確なアラーム許可の通知を受けます。exported=false、directBootAware=trueです。
+
+| メソッド | 入力 | 出力 | 処理 |
+| --- | --- | --- | --- |
+| `onReceive(context, intent)` | Context、Intent | Unit | 対応する通知だけをgoAsyncで受け、Managerの専用ワーカーへ復帰処理を依頼。解除はしない |
+
+### 14.5 既存クラスへの追加
+
+- FocusDpcApplication：`installMaintenance`（internalプロパティ、Manager）を遅延生成。`onCreate(): Unit` はプロセス起動時の復帰を非同期依頼します。
+- PolicyTaskRunnerのAPIは変更しません。期限復帰はManager側の専用ワーカーを使い、DNS処理から独立して実行します。
+- PolicyManager：`readStatus()` は期限の復帰処理を先に確認。`applyPolicies()` のインストール禁止ステップはManager.closeへ委譲し、許可記録も終了します。`clearBetaPolicies()` はテスト後片付け時の予約を処理してから従来の全解除へ進みます。
+- MainActivity・PolicyConfig・PolicyStateのインターフェースは変更しません。画面に解除の入口はありません。
+
+### 14.6 PCツールと検証
+
+`pc-tools/FocusDpcMaintenance.ps1` の入力はAction（Open／Status／Close）、出力はPC画面の案内と終了コード0／1です。`Invoke-FocusDpcAdb(AdbArguments): object` は固定引数のADBを実行し、終了コードとstdout／stderrを返します。既定の接続確認は `adb -d` でUSB端末1台に限定し、以降はそのシリアルへ固定します。解除時間の入力はありません。3種類のcmdがこのスクリプトを起動します。
+
+JUnitで期限境界・再実行・再起動・記録不正・予約／保存／管理API失敗を検証します。Instrumentationでは実際のOwner・DNS維持・通常アプリからの拒否を確認し、エミュレータ用スクリプトでADB入口・本体更新・再制限後のインストール拒否を確認します。今回実際に完了した結果は[検証記録](../VERIFICATION.md)に記載します。

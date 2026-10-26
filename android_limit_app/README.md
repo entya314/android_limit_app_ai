@@ -7,6 +7,7 @@ Kotlin / Android 10（API 29）以上。対象端末は **arrows We2** ですが
 ## 作業手順書・詳細設計書
 
 - [作業手順書](docs/SETUP_GUIDE.md)：Windows／Android Studioでのビルドから、実機の登録・適用・確認・解除まで。今回つまずいた点と対処も記載しています。
+- [PCから30分だけ許可する手順](docs/PC_MAINTENANCE.md)：初回更新、PCツール、復帰仕様。
 - [詳細設計書](docs/DETAIL_DESIGN.md)：クラスの役割、private以外のメソッドの入力・出力・処理、データ構造と非同期処理の説明です。
 
 ## 最初に読むところ
@@ -26,7 +27,7 @@ Kotlin / Android 10（API 29）以上。対象端末は **arrows We2** ですが
 | --- | --- |
 | NextDNSのPrivate DNS設定 | `setGlobalPrivateDnsModeSpecifiedHost()` |
 | Private DNSの設定変更禁止 | `addUserRestriction(DISALLOW_CONFIG_PRIVATE_DNS)` |
-| アプリの新規インストール禁止 | `addUserRestriction(DISALLOW_INSTALL_APPS)` |
+| アプリの新規インストール・更新禁止 | `addUserRestriction(DISALLOW_INSTALL_APPS)` |
 | FocusDPC自身のアンインストール禁止 | `setUninstallBlocked()` |
 
 **初期値は指定どおり `YOUR_ID.dns.nextdns.io` です。** 自分のホスト名へ変更するまではDNS設定を行いません。DNS設定が失敗した場合も、アプリインストール禁止とFocusDPCのアンインストール禁止は個別に適用し、画面に各項目の結果を表示します。DNS設定が成功し、実際のホスト名も確認できた場合にだけ、Private DNS変更禁止を新たに有効にします。
@@ -41,9 +42,9 @@ Device Ownerでないときの適用は、**「このアプリはDevice Ownerで
 - 工場出荷状態へのリセット禁止、Factory Reset Protectionの設定。
 - Device Ownerの解除を妨げる処理、自動再登録、端末データ消去。
 
-**0.1.1-betaから、画面の「制限を解除」ボタンと確認ダイアログを削除しました。** 画面の操作は「ポリシーを適用」と「状態を更新」の2つです。アプリ内から制限を解除する操作はありません。
+**0.1.1-betaから、画面の「制限を解除」ボタンと確認ダイアログを削除しました。** 画面の操作は「ポリシーを適用」と「状態を更新」の2つです。画面には解除操作を設けません。0.1.3-betaでは、許可済みPCのUSB接続からインストール禁止だけを30分間解除できます。時間はソースに固定し、スマホ側で自動的に禁止へ戻します。
 
-実機での解除は、後述のADB手順でDevice Ownerを解除し、必要ならAndroid設定画面でPrivate DNSを「自動」へ戻します。画面からの解除をなくした版であり、ADBや出荷時リセットによる復旧は可能です。PolicyManagerの解除処理はエミュレータのテスト後片付け用に残していますが、画面やPolicyTaskRunnerからは呼び出せません。
+インストール・更新時は[PC一時許可](docs/PC_MAINTENANCE.md)を使用します。全体の管理を終了する場合は、後述のADB手順でDevice Ownerを解除し、必要ならAndroid設定画面でPrivate DNSを「自動」へ戻します。画面からの解除をなくした版であり、ADBや出荷時リセットによる復旧は可能です。PolicyManagerの解除処理はエミュレータのテスト後片付け用に残していますが、画面やPolicyTaskRunnerからは呼び出せません。
 
 ## Android Studioでのビルド
 
@@ -63,13 +64,13 @@ Device Ownerでないときの適用は、**「このアプリはDevice Ownerで
 macOS / Linux：
 
 ```sh
-./gradlew assembleDebug assembleDebugAndroidTest lintDebug
+./gradlew testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug
 ```
 
 Windows PowerShell：
 
 ```powershell
-.\gradlew.bat assembleDebug assembleDebugAndroidTest lintDebug
+.\gradlew.bat testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug
 ```
 
 出力：
@@ -138,7 +139,7 @@ adb -s emulator-5554 shell dumpsys user
 3. プレースホルダーのまま適用します。NextDNSは「未設定」、DNS変更禁止は「無効」、インストール禁止とDPCアンインストール禁止は「有効」になることを確認します。
 4. 画面に解除ボタンがないことを確認します。次にADBの `remove-active-admin` でOwnerを解除し、DNS変更禁止とインストール禁止が解除されることを確認します。必要ならAndroid設定画面でPrivate DNSを「自動」へ戻します。
 5. 自分のNextDNSホスト名で再ビルドし、通信できるAVDでDevice Ownerへ再登録してから適用します。全項目が有効／設定済みになり、Android設定画面からPrivate DNSを編集できなくなることを確認します。
-6. 通常のAPKインストール・ストアからの新規インストール、およびAndroid設定からFocusDPCのアンインストールが制限されることを確認します。ADBは開発経路として残しているため、ADBでの操作だけを通常インストール禁止の判定に使わないでください。
+6. 通常のAPKインストール・ストアからの新規インストール、およびAndroid設定からFocusDPCのアンインストールが制限されることを確認します。インストール禁止はADBによる追加・更新にも適用されます。一時許可中と禁止中を分けて確認してください。
 7. アプリの再起動・画面回転・ボタン連打・設定画面からの復帰を試します。DNS接続確認中もUIが固まらず、処理が二重実行されないことを確認します。
 8. 使い捨てAVDでネットワーク障害・DNS接続失敗も確認します。DNSエラーは画面に表示され、DNS変更禁止を新たに設定しないことを確認します。
 
@@ -172,7 +173,7 @@ adb -s emulator-5554 shell dumpsys device_policy
 adb -s emulator-5554 uninstall io.github.focusdpc
 ```
 
-画面に解除ボタンはありません。UIが開けないときも、testOnlyの管理アプリに対する `remove-active-admin` が回復経路です。Owner解除後は、Googleアカウントなどの状態によって再登録できない場合があるため、必要なAPK更新は同じ署名での上書きを使用してください。
+画面に解除ボタンはありません。UIが開けないときも、testOnlyの管理アプリに対する `remove-active-admin` が回復経路です。Owner解除後は、Googleアカウントなどの状態によって再登録できない場合があるため、必要なAPK更新は一時許可中に同じ署名で上書きします。0.1.1-betaからの初回更新方法は[PC一時許可](docs/PC_MAINTENANCE.md)を参照してください。
 
 ## よくあるビルド・インストールエラー
 
@@ -195,6 +196,8 @@ android_limit_app/
 ├── READ_ME.txt                         元の仕様（そのまま保存）
 ├── README.md                           この説明書
 ├── docs/SETUP_GUIDE.md                  実機セットアップとトラブル対応
+├── docs/PC_MAINTENANCE.md             PC一時許可・初回更新手順
+├── pc-tools/                          Windows用の開始・状態確認・終了ツール
 ├── docs/DETAIL_DESIGN.md                クラス・メソッドごとの設計
 ├── settings.gradle / build.gradle      Gradle構成
 ├── gradlew / gradlew.bat / gradle/      Gradle Wrapper

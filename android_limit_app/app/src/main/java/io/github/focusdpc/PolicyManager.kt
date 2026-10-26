@@ -8,7 +8,8 @@ import android.os.UserManager
 import android.util.Log
 
 /**
- * 端末管理APIを呼び出す唯一のクラスです。画面やReceiverからポリシーを直接変更しません。
+ * 通常のポリシーを管理します。一時許可中のインストール制限だけは専用Managerへ委譲します。
+ * 画面やReceiverからポリシーを直接変更しません。
  * UIからはPolicyTaskRunnerを経由し、ブロッキングするDNS設定を必ず別スレッドで実行します。
  *
  * 公式仕様: https://developer.android.com/reference/android/app/admin/DevicePolicyManager
@@ -22,6 +23,8 @@ class PolicyManager(
     private val devicePolicyManager = requireNotNull(appContext.getSystemService(DevicePolicyManager::class.java))
     private val userManager = requireNotNull(appContext.getSystemService(UserManager::class.java))
     private val admin = ComponentName(appContext, MyDeviceAdminReceiver::class.java)
+    private val maintenance: InstallMaintenanceManager
+        get() = (appContext as FocusDpcApplication).installMaintenance
 
     /** 制限は実効値を表示します。他の管理者による制限もUserManagerで検出できます。 */
     fun readStatus(): PolicyState {
@@ -37,6 +40,10 @@ class PolicyManager(
 
         val owner = read(R.string.label_device_owner) {
             devicePolicyManager.isDeviceOwnerApp(appContext.packageName)
+        }
+        if (owner == true) {
+            val result = maintenance.status()
+            if (!result.success) errors += appContext.getString(R.string.maintenance_error, result.code)
         }
 
         // DNSとアンインストール禁止の取得はDevice Owner権限が必要です。
@@ -97,7 +104,9 @@ class PolicyManager(
         }
 
         steps += runStep(R.string.label_install_restriction) {
-            devicePolicyManager.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+            // 手動適用は一時許可も終了します。元の期限の予約・記録を残しません。
+            val result = maintenance.close()
+            check(result.success) { result.code }
         }
         steps += runStep(R.string.label_uninstall_restriction) {
             devicePolicyManager.setUninstallBlocked(admin, appContext.packageName, true)
@@ -125,7 +134,10 @@ class PolicyManager(
             devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_PRIVATE_DNS)
         }
         steps += runStep(R.string.label_install_restriction, R.string.step_cleared) {
-            devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+            maintenance.withLock {
+                check(maintenance.close().success)
+                devicePolicyManager.clearUserRestriction(admin, UserManager.DISALLOW_INSTALL_APPS)
+            }
         }
         steps += runStep(R.string.label_uninstall_restriction, R.string.step_cleared) {
             devicePolicyManager.setUninstallBlocked(admin, appContext.packageName, false)

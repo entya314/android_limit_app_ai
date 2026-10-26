@@ -6,6 +6,10 @@
         INTERNETは通常権限なので、利用者への実行時の許可ダイアログは表示されません。
     -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 30分後の再制限と、再起動・画面ロック中の復帰に使用します。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature android:name="android.software.device_admin" android:required="true" />
 
@@ -24,6 +28,26 @@
         android:supportsRtl="true"
         android:testOnly="true"
         android:theme="@style/Theme.FocusDPC">
+
+        <!-- 解除の入口はPCのADB shellだけ。通常アプリはDUMP権限とUID検査で拒否します。 -->
+        <provider
+            android:name=".InstallMaintenanceProvider"
+            android:authorities="io.github.focusdpc.maintenance"
+            android:directBootAware="true"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+
+        <receiver
+            android:name=".InstallMaintenanceReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>

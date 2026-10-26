@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.UserManager
+import android.net.Uri
 
 /**
  * 追加のテストライブラリを使わず、実際の端末管理APIを検証します。
@@ -88,6 +89,42 @@ class PolicyInstrumentation : Instrumentation() {
                     check(dpm.getGlobalPrivateDnsMode(admin) == DevicePolicyManager.PRIVATE_DNS_MODE_OPPORTUNISTIC)
                     // テストの後片付けはDevice Owner自体を解除しません。
                     check(state.deviceOwner == true)
+                }
+                "owner_maintenance" -> {
+                    check(dpm.isDeviceOwnerApp(targetContext.packageName))
+                    val maintenance = (targetContext.applicationContext as FocusDpcApplication).installMaintenance
+                    dpm.addUserRestriction(admin, UserManager.DISALLOW_CONFIG_PRIVATE_DNS)
+                    dpm.setUninstallBlocked(admin, targetContext.packageName, true)
+                    val dnsMode = dpm.getGlobalPrivateDnsMode(admin)
+                    val dnsHost = dpm.getGlobalPrivateDnsHost(admin)
+                    check(maintenance.open().code == "OPENED")
+                    check(!userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS))
+                    check(userManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_PRIVATE_DNS))
+                    check(dpm.getGlobalPrivateDnsMode(admin) == dnsMode)
+                    check(dpm.getGlobalPrivateDnsHost(admin) == dnsHost)
+                    check(dpm.isUninstallBlocked(admin, targetContext.packageName))
+                    check(dpm.isDeviceOwnerApp(targetContext.packageName))
+                    val remaining = maintenance.status().remainingSeconds
+                    check(maintenance.open().remainingSeconds <= remaining)
+                    // DUMP権限の模擬付与だけでは、通常アプリのUIDをshellには偽装できません。
+                    uiAutomation.adoptShellPermissionIdentity(Manifest.permission.DUMP)
+                    try {
+                        var rejected = false
+                        try {
+                            targetContext.contentResolver.call(Uri.parse("content://io.github.focusdpc.maintenance"),
+                                "open", null, null)
+                        } catch (_: SecurityException) { rejected = true }
+                        check(rejected) { "An app could invoke the PC-only entry point" }
+                    } finally {
+                        uiAutomation.dropShellPermissionIdentity()
+                    }
+                    check(maintenance.onBoot().code == "BLOCKED")
+                    check(userManager.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS))
+                    check(userManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_PRIVATE_DNS))
+                    check(maintenance.open().success)
+                    // 画面の既存操作による再適用でも、一時許可を終了できることを確認します。
+                    manager.applyPolicies()
+                    check(maintenance.status().code == "BLOCKED")
                 }
                 "hostname_validation" -> {
                     check(targetContext.checkSelfPermission(Manifest.permission.INTERNET) ==

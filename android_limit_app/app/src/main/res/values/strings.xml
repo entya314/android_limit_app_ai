@@ -29,6 +29,7 @@
     <string name="permission_error">端末管理の権限がありません。Device Ownerの登録状態を確認してください。</string>
     <string name="argument_error">設定値が正しくありません。ホスト名などの設定を確認してください。</string>
     <string name="operation_failed">処理に失敗しました。状態を更新して再試行してください。</string>
+    <string name="maintenance_error">一時許可の復帰処理を確認してください（%1$s）。PCツールで状態を確認できます。</string>
     <string name="step_applied">適用済み</string>
     <string name="step_cleared">解除済み</string>
     <string name="apply_complete">すべてのポリシーを適用しました。</string>

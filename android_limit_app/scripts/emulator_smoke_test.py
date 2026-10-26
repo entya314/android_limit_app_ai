@@ -2,7 +2,10 @@
 """使い捨てのAndroid Emulatorで、FocusDPCの登録・制限・解除を検証します。"""
 
 import argparse
+import base64
+import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -40,6 +43,18 @@ def main() -> int:
         if f"FOCUSDPC_TEST_PASS: {name}" not in output:
             raise RuntimeError(f"テストに失敗: {name}")
 
+    def maintenance(method: str) -> dict:
+        output = adb("shell", "content", "call", "--user", "0", "--uri",
+                     "content://io.github.focusdpc.maintenance", "--method", method)
+        match = re.search(r"payload=([A-Za-z0-9+/=]+)", output)
+        if not match:
+            raise RuntimeError(f"一時許可の応答が不正: {output}")
+        result = json.loads(base64.b64decode(match.group(1)))
+        if not result["success"]:
+            raise RuntimeError(f"一時許可APIの失敗: {result}")
+        print(f"maintenance {method}: {result}", flush=True)
+        return result
+
     owner_registered = False
     tests_installed = False
     test_failure = None
@@ -71,6 +86,23 @@ def main() -> int:
 
         run_scenario("owner_apply")
         run_scenario("owner_repeat")
+        run_scenario("owner_maintenance")
+        result = maintenance("open")
+        if result["code"] != "OPENED" or not 0 < result["remainingSeconds"] <= 1800:
+            raise RuntimeError("30分の一時許可を開始できませんでした。")
+        # 許可中のAPK追加・上書き更新と、FocusDPC自身の更新後にも期限が残ることを確認します。
+        print(adb("install", "-t", "-r", str(test_apk)), flush=True)
+        print(adb("install", "-t", "-r", str(app_apk)), flush=True)
+        current = maintenance("status")
+        if current["code"] != "OPEN" or current["remainingSeconds"] > result["remainingSeconds"]:
+            raise RuntimeError("本体更新により許可期限が延長／消失しました。")
+        if maintenance("open")["remainingSeconds"] > current["remainingSeconds"]:
+            raise RuntimeError("再実行で許可期限が延長されました。")
+        if maintenance("close")["code"] != "BLOCKED":
+            raise RuntimeError("PCから禁止へ戻せませんでした。")
+        denied = adb("install", "-t", "-r", str(test_apk), require_success=False)
+        if "User restriction" not in denied and "INSTALL_FAILED_USER_RESTRICTED" not in denied:
+            raise RuntimeError(f"禁止中のADB更新が想定した理由で拒否されませんでした: {denied}")
         run_scenario("owner_clear")
         run_scenario("owner_dns_failure")
         run_scenario("owner_clear")
