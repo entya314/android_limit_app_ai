@@ -44,4 +44,11 @@
     <string name="dns_unknown_error">DNS設定APIがエラーを返しました（コード: %1$d）。</string>
     <string name="dns_verification_failed">DNS設定の反映を確認できなかったため、DNS変更禁止は適用していません。</string>
     <string name="dns_automatic">Private DNSを「自動」に変更済み</string>
+    <string name="line_browser_service_label">LINE内部ブラウザ制限</string>
+    <string name="line_browser_enabled">Android設定：有効</string>
+    <string name="line_browser_disabled">Android設定：無効</string>
+    <string name="line_browser_settings_button">ユーザー補助の設定を開く</string>
+    <string name="line_browser_settings_unavailable">Androidの設定アプリから「ユーザー補助」を開いてください。</string>
+    <string name="line_browser_hint">ユーザー補助の設定で手動で有効にしてください。LINE内部ブラウザの既知の画面を閉じます。外部ブラウザは対象外です。有効表示は実際の遮断成功を保証しません。</string>
+    <string name="line_browser_service_description">LINE内部ブラウザの既知の画面を検出したとき、戻る操作を1回実行します。トーク・通話・他アプリでは実行しません。誤操作防止のため現在のウィンドウを確認します。画面の本文・URL・メッセージの読み取り、記録、送信は行いません。</string>
 </resources>

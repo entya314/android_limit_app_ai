@@ -56,6 +56,20 @@
             </intent-filter>
         </activity>
 
+        <!-- システムだけが接続可能。利用者がAndroid設定で手動で有効にします。 -->
+        <service
+            android:name=".LineBrowserAccessibilityService"
+            android:exported="true"
+            android:label="@string/line_browser_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/line_browser_accessibility_service" />
+        </service>
+
         <!-- exportedでもBIND_DEVICE_ADMINにより、管理用通知を送れるのはシステムだけです。 -->
         <receiver
             android:name=".MyDeviceAdminReceiver"
