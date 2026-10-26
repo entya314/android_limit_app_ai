@@ -1,4 +1,4 @@
-# Windows PowerShell 5.1 / PowerShell 7対応。解除時間はAPK側に固定し、引数にはしません。
+﻿# Windows PowerShell 5.1 / PowerShell 7対応。解除時間はAPK側に固定し、引数にはしません。
 [CmdletBinding()]
 param(
     [ValidateSet('Open', 'Status', 'Close')]

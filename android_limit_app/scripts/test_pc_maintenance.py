@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """PowerShellと偽ADBで、PCツールの端末選択・成功／失敗判定を検証します（Linux用）。"""
 import argparse
+import codecs
 import json
 import os
 from pathlib import Path
@@ -40,6 +41,22 @@ def main():
     parser.add_argument('--pwsh', default='pwsh')
     args = parser.parse_args()
     script = Path(__file__).resolve().parent.parent / 'pc-tools/FocusDpcMaintenance.ps1'
+    # Windows PowerShell 5.1はBOMなしUTF-8を日本語WindowsでCP932として読むため、
+    # 日本語コメントの末尾で改行まで誤読し、関数の開始行が失われることがあります。
+    assert script.read_bytes().startswith(codecs.BOM_UTF8), 'Keep the UTF-8 BOM for Windows PowerShell 5.1'
+    encoding_check = r'''
+$reader = [IO.StreamReader]::new($env:FOCUSDPC_TEST_SCRIPT, [Text.Encoding]::GetEncoding(932), $true)
+try { $source = $reader.ReadToEnd() } finally { $reader.Dispose() }
+$tokens = $null
+$parseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
+'''
+    result = subprocess.run([args.pwsh, '-NoProfile', '-Command', encoding_check],
+                            env=dict(os.environ, FOCUSDPC_TEST_SCRIPT=str(script)),
+                            capture_output=True, text=True, timeout=30, check=False)
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    print('PASS: Japanese Windows encoding with BOM detection')
     cases = [('open', 'Open', True), ('already', 'Open', True), ('status', 'Status', True),
              ('close', 'Close', True), ('multiple', 'Open', False), ('missing', 'Open', False),
              ('bad_payload', 'Open', False), ('native_failure', 'Open', False),
@@ -70,7 +87,7 @@ def main():
                                 env=env, capture_output=True, text=True, timeout=30, check=False)
         assert result.returncode != 0 and not calls.read_text()
         print('PASS: duration argument rejected')
-    print('12 PC-tool cases passed.')
+    print('13 PC-tool cases passed.')
 
 
 if __name__ == '__main__':

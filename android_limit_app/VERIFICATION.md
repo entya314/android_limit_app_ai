@@ -125,3 +125,14 @@ python3 scripts/test_pc_maintenance.py --pwsh /path/to/pwsh
 したがって、**実端末上のProviderへのADB呼出し、実際の管理APIの切替、OSのアラームによる30分後の自動復帰、スリープ・再起動・本体更新時の復帰は、今回の実行では未確認です。** テストAPKとスクリプトには、通常アプリからの入口拒否、Owner・DNS維持、ADB上書き更新、再制限後のインストール拒否を確認する項目を追加しています。
 
 テスト用スマホで[PC一時許可手順](docs/PC_MAINTENANCE.md)に沿って確認してください。以前の版の実行成功を今回の成功記録として扱わないよう、上記の単体テスト・PC模擬テストと区別しています。
+
+## PCツール修正：日本語版Windows PowerShellの文字コード
+
+確認日：2026-10-26。スマホ側は0.1.3-betaを継続使用します。
+
+- 利用者の環境で `FocusDpcMaintenance.ps1` の34行目に `UnexpectedToken` が発生しました。
+- BOMなしUTF-8の旧スクリプトを、日本語版Windows PowerShell 5.1の既定文字コードCP932として読み込むと、同じ34行目の構文エラーが再現しました。UTF-8としての解析にはエラーがありませんでした。
+- 日本語コメントの誤読を防ぐため、スクリプトをUTF-8 BOM付きで保存しました。処理内容とAPKは変更していません。
+- 既定CP932＋BOM自動判定のStreamReaderから読み、PowerShellのパーサーに渡す回帰テストを追加しました。UTF-8 BOMの保持も検査します。
+- 文字コード検証を含め、PCツールの模擬テスト13ケースが成功しました。PowerShell 7.6.9／Linux上での検証です。Windows PowerShell 5.1本体での実行は、この環境では確認していません。
+- 修正版取得後は `AllowInstall.cmd` を再実行します。この修正のためのAPK再ビルドや再インストールは不要です。

@@ -78,6 +78,8 @@ requireNotNull(getSystemService(android.app.admin.DevicePolicyManager::class.jav
 
 ADBはPATH、または `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` から探します。表示はWindows PowerShellの文字コード差を避けるため英語です。`.cmd` はPC内の同梱スクリプトだけを起動します。
 
+`FocusDpcMaintenance.ps1` は **UTF-8 BOM付き** で保存しています。日本語版Windows PowerShell 5.1で日本語コメントを正しく読むために必要です。編集する場合もBOMを維持してください。旧ファイルで「34行目・UnexpectedToken」が出る場合は `git pull` でPCツールだけを更新し、再実行してください。この修正によるAPKの再ビルド・再インストールは不要です。
+
 ## エラーの見方
 
 | 表示 | 対応 |
